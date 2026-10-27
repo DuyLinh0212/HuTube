@@ -142,15 +142,16 @@ void main() {
       await tester.tap(reply);
       await tester.pumpAndSettle();
       await tester.enterText(
-        find.byKey(const ValueKey('text-entry-input')),
+        find.byKey(const ValueKey('thread-reply-input')),
         'A reply',
       );
       await tester.pump();
-      await tester.tap(
-        find.widgetWithText(FilledButton, AppStrings.t('common.send')),
-      );
+      await tester.tap(find.byTooltip(AppStrings.t('common.send')).last);
       await tester.pumpAndSettle();
       expect(writes.where((p) => p.startsWith('POST')).length, 2);
+      expect(find.text('A reply'), findsOneWidget);
+      await tester.tap(find.byTooltip(AppStrings.t('common.close')).last);
+      await tester.pumpAndSettle();
       Future<void> option(String label) async {
         final menu = find
             .descendant(

@@ -11,14 +11,21 @@ import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
 import '../../channel/models/channel_models.dart';
-import '../../channel/services/channel_service.dart';
 import '../content/content_models.dart';
 import '../content/content_service.dart';
 import '../content/video_card.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key, required this.auth});
+  const SearchScreen({
+    super.key,
+    required this.auth,
+    this.initialQuery = '',
+    this.initialTag,
+    this.initialCategoryId,
+  });
   final AuthController auth;
+  final String initialQuery;
+  final String? initialTag, initialCategoryId;
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -28,14 +35,17 @@ class _SearchScreenState extends State<SearchScreen> {
   final _query = TextEditingController();
   final _prefs = const AppPreferencesStore();
   late final ContentService _content = ContentService(widget.auth);
-  late final ChannelService _channels = ChannelService(widget.auth);
 
   List<VideoCard> _results = const [];
   List<String> _recentSearches = [];
-  ChannelDetail? _matchedChannel;
+  List<ChannelDetail> _channelResults = const [];
+  String _resultType = 'all';
+  String _committedType = 'all';
   String _sort = 'relevance';
   String? _duration;
   String? _dateRange;
+  String? _categoryId, _tag;
+  List<Category> _categories = const [];
   String? _error;
   bool _loading = false;
   bool _searched = false;
@@ -46,11 +56,46 @@ class _SearchScreenState extends State<SearchScreen> {
   String _committedSort = 'relevance';
   String? _committedDuration;
   String? _committedDateRange;
+  String? _committedCategoryId, _committedTag;
 
   @override
   void initState() {
     super.initState();
     unawaited(_loadRecentSearches());
+    unawaited(_loadCategories());
+    _categoryId = widget.initialCategoryId;
+    _tag = widget.initialTag;
+    _query.text = widget.initialQuery.isNotEmpty
+        ? widget.initialQuery
+        : widget.initialTag ?? '';
+    if (_query.text.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _search());
+    }
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final values = await _content.categories();
+      if (mounted) setState(() => _categories = values);
+    } catch (_) {
+      /* Optional filters do not block keyword search. */
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant SearchScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialQuery != widget.initialQuery ||
+        oldWidget.initialTag != widget.initialTag ||
+        oldWidget.initialCategoryId != widget.initialCategoryId) {
+      _query.text = widget.initialQuery.isNotEmpty
+          ? widget.initialQuery
+          : widget.initialTag ?? '';
+      _categoryId = widget.initialCategoryId;
+      _tag = widget.initialTag;
+      _resultType = 'all';
+      if (_query.text.isNotEmpty) _search();
+    }
   }
 
   Future<void> _loadRecentSearches() async {
@@ -81,6 +126,8 @@ class _SearchScreenState extends State<SearchScreen> {
     if (_sort != 'relevance') count++;
     if (_duration != null) count++;
     if (_dateRange != null) count++;
+    if (_categoryId != null) count++;
+    if (_tag?.isNotEmpty == true) count++;
     return count;
   }
 
@@ -118,7 +165,11 @@ class _SearchScreenState extends State<SearchScreen> {
       _committedSort = _sort;
       _committedDuration = _duration;
       _committedDateRange = _dateRange;
-      _matchedChannel = null;
+      _committedCategoryId = _categoryId;
+      _committedTag = _tag;
+      _channelResults = const [];
+      _committedType = _resultType;
+      _results = const [];
     }
     final generation = _generation;
     final sort = _committedSort;
@@ -134,12 +185,37 @@ class _SearchScreenState extends State<SearchScreen> {
     }
 
     try {
+      if (_committedType == 'channels') {
+        final channels = await _content.searchChannels(
+          query: query,
+          page: next,
+        );
+        if (!mounted || generation != _generation) return;
+        setState(() {
+          final seen = _channelResults.map((c) => c.id).toSet();
+          _channelResults = more
+              ? [
+                  ..._channelResults,
+                  ...channels.items.where((c) => seen.add(c.id)),
+                ]
+              : channels.items;
+          _page = channels.page;
+          _hasMore = channels.hasMore;
+          _loading = false;
+        });
+        return;
+      }
+      if (!more && _committedType == 'all') {
+        unawaited(_findChannels(query, generation));
+      }
       final page = await _content.searchVideos(
         query: query,
         page: next,
         sort: sort,
         duration: _committedDuration,
         dateRange: _committedDateRange,
+        categoryId: _committedCategoryId,
+        tag: _committedTag,
       );
       if (!mounted || generation != _generation) return;
       setState(() {
@@ -148,7 +224,6 @@ class _SearchScreenState extends State<SearchScreen> {
         _hasMore = page.hasMore;
         _loading = false;
       });
-      if (!more) unawaited(_findChannel(query, page.items, generation));
     } on ApiFailure catch (error) {
       if (mounted && generation == _generation) {
         setState(() {
@@ -166,37 +241,24 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
-  Future<void> _findChannel(
-    String query,
-    List<VideoCard> items,
-    int generation,
-  ) async {
-    if (!mounted || generation != _generation) return;
-    ChannelDetail? matchedChannel;
-    final clean = query.startsWith('@') ? query.substring(1) : query;
+  Future<void> _findChannels(String query, int generation) async {
     try {
-      matchedChannel = await _channels.getChannel(clean);
-    } catch (_) {
-      if (items.isNotEmpty) {
-        final first = items.first;
-        final normQ = query.toLowerCase().replaceAll('@', '').trim();
-        if (first.channelName.toLowerCase().contains(normQ) ||
-            first.channelHandle.toLowerCase().contains(normQ)) {
-          try {
-            matchedChannel = await _channels.getChannel(first.channelHandle);
-          } catch (_) {}
-        }
+      final page = await _content.searchChannels(query: query, pageSize: 3);
+      if (mounted && generation == _generation) {
+        setState(() => _channelResults = page.items);
       }
+    } catch (_) {
+      /* Video results remain usable if channel search is unavailable. */
     }
-
-    if (!mounted || generation != _generation) return;
-    setState(() => _matchedChannel = matchedChannel);
   }
 
   void _showFilterSheet() {
     var tempSort = _sort;
     var tempDuration = _duration;
     var tempDateRange = _dateRange;
+    var tempCategory = _categoryId;
+    var tempTag = _tag ?? '';
+    var resetVersion = 0;
 
     showModalBottomSheet<void>(
       context: context,
@@ -256,6 +318,9 @@ class _SearchScreenState extends State<SearchScreen> {
                               tempSort = 'relevance';
                               tempDuration = null;
                               tempDateRange = null;
+                              tempCategory = null;
+                              tempTag = '';
+                              resetVersion++;
                             });
                           },
                           child: Text(AppStrings.t('search.resetFilter')),
@@ -276,6 +341,46 @@ class _SearchScreenState extends State<SearchScreen> {
                       padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
                       children: [
                         // Sort by
+                        if (_categories.isNotEmpty) ...[
+                          DropdownButtonFormField<String>(
+                            key: ValueKey(tempCategory),
+                            initialValue:
+                                _categories.any((c) => c.id == tempCategory)
+                                ? tempCategory
+                                : null,
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              labelText: AppStrings.t('upload.category'),
+                            ),
+                            items: [
+                              DropdownMenuItem<String>(
+                                value: null,
+                                child: Text(AppStrings.t('search.resultAll')),
+                              ),
+                              ..._categories.map(
+                                (c) => DropdownMenuItem(
+                                  value: c.id,
+                                  child: Text(c.displayName),
+                                ),
+                              ),
+                            ],
+                            onChanged: (value) =>
+                                setModalState(() => tempCategory = value),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        TextFormField(
+                          initialValue: tempTag,
+                          key: ValueKey('tag-$resetVersion'),
+                          decoration: InputDecoration(
+                            labelText: AppStrings.t('upload.tags'),
+                            prefixText: '#',
+                          ),
+                          onChanged: (value) => tempTag = value
+                              .trim()
+                              .replaceFirst(RegExp(r'^#'), ''),
+                        ),
+                        const SizedBox(height: 20),
                         Text(
                           AppStrings.t('search.sort.title'),
                           style: const TextStyle(fontWeight: FontWeight.w700),
@@ -375,6 +480,8 @@ class _SearchScreenState extends State<SearchScreen> {
                             _sort = tempSort;
                             _duration = tempDuration;
                             _dateRange = tempDateRange;
+                            _categoryId = tempCategory;
+                            _tag = tempTag.isEmpty ? null : tempTag;
                           });
                           Navigator.pop(ctx);
                           if (_searched) _search();
@@ -414,6 +521,31 @@ class _SearchScreenState extends State<SearchScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
+
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final type in ['all', 'videos', 'channels'])
+                          ChoiceChip(
+                            label: Text(
+                              AppStrings.t(
+                                'search.result${type == 'all'
+                                    ? 'All'
+                                    : type == 'videos'
+                                    ? 'Videos'
+                                    : 'Channels'}',
+                              ),
+                            ),
+                            selected: _resultType == type,
+                            onSelected: (_) {
+                              if (_resultType == type) return;
+                              setState(() => _resultType = type);
+                              if (_query.text.trim().isNotEmpty) _search();
+                            },
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: _query,
                       autofocus: false,
@@ -451,7 +583,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                   _page = 1;
                                   _error = null;
                                   _committedQuery = '';
-                                  _matchedChannel = null;
+                                  _channelResults = const [];
                                   _query.clear();
                                   _results = const [];
                                   _searched = false;
@@ -624,12 +756,14 @@ class _SearchScreenState extends State<SearchScreen> {
                         compact: true,
                         accent: AppColors.violet,
                       )
-                    else if (_loading && _results.isEmpty)
+                    else if (_loading &&
+                        _results.isEmpty &&
+                        _channelResults.isEmpty)
                       const Padding(
                         padding: EdgeInsets.all(36),
                         child: Center(child: CircularProgressIndicator()),
                       )
-                    else if (_results.isEmpty)
+                    else if (_results.isEmpty && _channelResults.isEmpty)
                       HuTubeStateView(
                         icon: Icons.manage_search_rounded,
                         title: AppStrings.t(
@@ -643,14 +777,12 @@ class _SearchScreenState extends State<SearchScreen> {
                       )
                     else ...[
                       const SizedBox(height: 8),
-                      if (_matchedChannel != null) ...[
-                        _SearchChannelCard(
-                          channel: _matchedChannel!,
-                          auth: widget.auth,
-                        ),
+                    ],
+                    if (_error == null)
+                      for (final channel in _channelResults) ...[
+                        _SearchChannelCard(channel: channel, auth: widget.auth),
                         const SizedBox(height: 8),
                       ],
-                    ],
                   ],
                 ),
               ),
@@ -666,7 +798,9 @@ class _SearchScreenState extends State<SearchScreen> {
                     ),
                   ),
                 ),
-              if (_error == null && _results.isNotEmpty && _hasMore)
+              if (_error == null &&
+                  (_results.isNotEmpty || _channelResults.isNotEmpty) &&
+                  _hasMore)
                 SliverToBoxAdapter(
                   child: OutlinedButton(
                     onPressed: _loading ? null : () => _search(more: true),

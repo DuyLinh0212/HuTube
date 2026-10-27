@@ -68,6 +68,7 @@ class ApiFailure implements Exception, LocalizedApiFailure {
       'EMAIL_DELIVERY_UNAVAILABLE' => 'auth.emailDeliveryUnavailable',
       'DOWNLOAD_NOT_INCLUDED' => 'downloads.planRequired',
       'DOWNLOAD_QUALITY_DENIED' => 'downloads.qualityDenied',
+      'DOWNLOAD_NOT_READY' => 'downloads.notReady',
       'INVALID_OR_EXPIRED_TOKEN' => 'auth.invalidVerificationLink',
       'VALIDATION_ERROR' => 'common.validationError',
       'ACCOUNT_SUSPENDED' ||

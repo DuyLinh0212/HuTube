@@ -1,5 +1,7 @@
 package com.hutube.user_app
 
+import android.content.res.Configuration
+
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 
@@ -16,6 +18,10 @@ class MainActivity : FlutterActivity() {
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         pictureInPicture?.onUserLeaveHint()
+    }
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        pictureInPicture?.onModeChanged(isInPictureInPictureMode)
     }
     override fun onDestroy() {
         mediaTools?.close()

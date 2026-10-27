@@ -32,15 +32,49 @@ class MultipartFilePayload {
     required this.path,
     required this.fileName,
     required this.contentType,
+    this.bytes,
   });
 
   final String field;
   final String path;
   final String fileName;
   final String contentType;
+  final List<int>? bytes;
 }
 
 class ApiClient {
+  Future<BinaryPayload> requestBinary(
+    String path, {
+    String? accessToken,
+  }) async {
+    try {
+      final response = await client
+          .get(
+            Uri.parse(_buildUrl(path)),
+            headers: {
+              'Accept': 'application/pdf,image/*',
+              'X-HuTube-Client': AppConfig.standard.clientHeader,
+              if (accessToken != null) 'Authorization': 'Bearer $accessToken',
+            },
+          )
+          .timeout(requestTimeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        _decodeResponse(response);
+      }
+      return BinaryPayload(
+        response.bodyBytes,
+        response.headers['content-type']?.split(';').first ??
+            'application/octet-stream',
+      );
+    } on TimeoutException {
+      throw ApiFailure.timeoutError;
+    } on SocketException {
+      throw ApiFailure.network;
+    } on http.ClientException {
+      throw ApiFailure.network;
+    }
+  }
+
   static void invalidateReadCache() => ReadCache.clear();
   static void invalidateNotificationCache() =>
       ReadCache.invalidateNotifications();
@@ -117,12 +151,19 @@ class ApiClient {
     UploadControl? uploadControl,
     void Function(int sent, int total)? onProgress,
   }) async {
+    final transport = UploadControl();
+    var finished = false;
+    unawaited(
+      uploadControl?.aborted.then((_) {
+        if (!finished) transport.cancel();
+      }),
+    );
     try {
       uploadControl?.check();
       final request = ProgressMultipartRequest(
         method,
         Uri.parse(_buildUrl(path)),
-        control: uploadControl,
+        control: transport,
         onProgress: onProgress,
       );
       request.headers.addAll({
@@ -134,12 +175,19 @@ class ApiClient {
       request.fields.addAll(fields);
       for (final file in files) {
         request.files.add(
-          await http.MultipartFile.fromPath(
-            file.field,
-            file.path,
-            filename: file.fileName,
-            contentType: MediaType.parse(file.contentType),
-          ),
+          file.bytes != null
+              ? http.MultipartFile.fromBytes(
+                  file.field,
+                  file.bytes!,
+                  filename: file.fileName,
+                  contentType: MediaType.parse(file.contentType),
+                )
+              : await http.MultipartFile.fromPath(
+                  file.field,
+                  file.path,
+                  filename: file.fileName,
+                  contentType: MediaType.parse(file.contentType),
+                ),
         );
       }
       final response = await http.Response.fromStream(
@@ -156,7 +204,7 @@ class ApiClient {
     } on AppError {
       rethrow;
     } on TimeoutException {
-      uploadControl?.cancel();
+      transport.cancel();
       unawaited(checkConnection());
       throw ApiFailure.timeoutError;
     } on SocketException {
@@ -165,6 +213,8 @@ class ApiClient {
     } on http.ClientException {
       unawaited(checkConnection());
       throw ApiFailure.network;
+    } finally {
+      finished = true;
     }
   }
 
@@ -379,4 +429,10 @@ class ApiClient {
     }
     return data;
   }
+}
+
+class BinaryPayload {
+  const BinaryPayload(this.bytes, this.contentType);
+  final List<int> bytes;
+  final String contentType;
 }

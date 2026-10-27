@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -6,10 +7,12 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/hutube_widgets.dart';
 import '../../features/content/content_models.dart';
 import '../../features/content/content_service.dart';
 import '../../features/content/video_card.dart';
 import '../../features/moderation/report_dialog.dart';
+import '../../features/moderation/moderation_screen.dart';
 import '../../features/playlists/playlist_service.dart';
 import '../models/channel_models.dart';
 import '../services/channel_service.dart';
@@ -31,11 +34,17 @@ class ChannelScreen extends StatefulWidget {
 
 class _ChannelScreenState extends State<ChannelScreen>
     with SingleTickerProviderStateMixin {
-  late final ChannelService _channelService;
+  late ChannelService _channelService;
   late final TabController _tabController;
 
   bool _loading = true;
   String? _error;
+  String? _errorReference;
+  bool _videosLoading = false, _playlistsLoading = false;
+  bool _subscriptionLoading = false, _subscriptionFailed = false;
+  bool _videosFailed = false, _playlistsFailed = false;
+  late int _sessionGeneration;
+  late bool _authenticated;
   ChannelDetail? _channel;
   bool _isSubscribed = false;
   bool _notificationsEnabled = false;
@@ -50,85 +59,224 @@ class _ChannelScreenState extends State<ChannelScreen>
   bool _loadingMore = false;
   List<PlaylistSummary> _playlists = const [];
 
+  bool get _contentUnavailable =>
+      _channel != null && _channel!.status.toLowerCase() != 'active';
+
   @override
   void initState() {
     super.initState();
     _channelService = ChannelService(widget.auth);
     _tabController = TabController(length: 4, vsync: this);
+    _sessionGeneration = widget.auth.sessionGeneration;
+    _authenticated = widget.auth.authenticated;
+    widget.auth.addListener(_identityChanged);
+    _load();
+  }
+
+  void _identityChanged() {
+    if (_sessionGeneration == widget.auth.sessionGeneration &&
+        _authenticated == widget.auth.authenticated) {
+      return;
+    }
+    _sessionGeneration = widget.auth.sessionGeneration;
+    _authenticated = widget.auth.authenticated;
     _load();
   }
 
   @override
+  void didUpdateWidget(covariant ChannelScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.auth != widget.auth) {
+      oldWidget.auth.removeListener(_identityChanged);
+      _channelService = ChannelService(widget.auth);
+      widget.auth.addListener(_identityChanged);
+      _sessionGeneration = widget.auth.sessionGeneration;
+      _authenticated = widget.auth.authenticated;
+    }
+    if (oldWidget.channelOrHandle != widget.channelOrHandle ||
+        oldWidget.auth != widget.auth) {
+      _load();
+    }
+  }
+
+  @override
   void dispose() {
+    widget.auth.removeListener(_identityChanged);
     _tabController.dispose();
     super.dispose();
   }
 
+  bool _current(int generation, int session) =>
+      mounted &&
+      generation == _loadGeneration &&
+      session == widget.auth.sessionGeneration;
+
   Future<void> _load() async {
     if (!mounted) return;
     final generation = ++_loadGeneration;
-    _loadingMore = false;
-    _trailerVideo = null;
+    final session = widget.auth.sessionGeneration;
     setState(() {
       _loading = true;
       _error = null;
+      _errorReference = null;
+      _channel = null;
+      _videos = [];
+      _playlists = [];
+      _trailerVideo = null;
+      _loadingMore = false;
+      _videosFailed = _playlistsFailed = false;
+      _videosLoading = _playlistsLoading = false;
+      _subscriptionLoading = false;
+      _subscriptionFailed = false;
+      _subscriptionBusy = false;
     });
-
     try {
       final detail = await _channelService.getChannel(widget.channelOrHandle);
-      var subscribed = detail.isSubscribed;
-      var notificationsEnabled = false;
-      if (widget.auth.authenticated && !detail.isOwner) {
-        final status = await _channelService.getSubscriptionStatus(detail.id);
-        if (status != null) {
-          subscribed = status['status'] == 'active';
-          notificationsEnabled =
-              subscribed && status['notificationsEnabled'] == true;
-        }
-      }
-      final results = await Future.wait([
-        ContentService(widget.auth).searchVideos(
-          query: '',
-          channelId: detail.id,
-          page: 1,
-          pageSize: 30,
-          sort: 'newest',
-        ),
-        detail.isOwner
-            ? PlaylistService(widget.auth).channelMine(detail.id)
-            : PlaylistService(widget.auth).publicByChannel(detail.id),
-      ]);
-      if (mounted && generation == _loadGeneration) {
-        setState(() {
-          final page = results[0] as PageResult<VideoCard>;
-          _videos = page.items;
-          _videoPage = page.page;
-          _videoTotal = page.total;
-          _playlists = results[1] as List<PlaylistSummary>;
-          _channel = detail;
-          _isSubscribed = subscribed;
-          _notificationsEnabled = notificationsEnabled;
-          _subscriberCount = detail.subscriberCount;
-          _loading = false;
-        });
-        _loadTrailer(detail, generation);
-      }
-    } on ApiFailure catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = AppStrings.apiError(e, fallback: 'common.error');
-          _loading = false;
-        });
-      }
+      if (!_current(generation, session)) return;
+      setState(() {
+        _channel = detail;
+        _isSubscribed = detail.isSubscribed;
+        _notificationsEnabled = false;
+        _subscriberCount = detail.subscriberCount;
+        _videoPage = 1;
+        _videoTotal = 0;
+        _loading = false;
+      });
+      if (_contentUnavailable) return;
+      // Render the channel as soon as its profile is ready. Secondary failures
+      // belong to their own sections, just as on user-web.
+      unawaited(_loadVideos(detail, generation, session));
+      unawaited(_loadPlaylists(detail, generation, session));
+      unawaited(_loadSubscription(detail, generation, session));
+      unawaited(_loadTrailer(detail, generation));
+    } on ApiFailure catch (error) {
+      if (!_current(generation, session)) return;
+      setState(() {
+        _error = error.status == 404
+            ? AppStrings.t('channel.notFound')
+            : AppStrings.apiError(error, fallback: 'channel.loadError');
+        _errorReference = [
+          if (error.status > 0) 'HTTP ${error.status}',
+          error.code,
+          if (error.traceId != null) error.traceId!,
+        ].join(' · ');
+        _loading = false;
+      });
     } catch (_) {
-      if (mounted) {
-        setState(() {
-          _error = AppStrings.t('common.serverError');
-          _loading = false;
-        });
+      if (!_current(generation, session)) return;
+      setState(() {
+        _error = AppStrings.t('channel.loadError');
+        _errorReference = 'CHANNEL_RESPONSE_INVALID';
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _loadVideos(
+    ChannelDetail channel,
+    int generation,
+    int session,
+  ) async {
+    if (!_current(generation, session) || _videosLoading) return;
+    setState(() {
+      _videosLoading = true;
+      _videosFailed = false;
+    });
+    try {
+      final page = await ContentService(widget.auth).searchVideos(
+        query: '',
+        channelId: channel.id,
+        page: 1,
+        pageSize: 30,
+        sort: 'newest',
+      );
+      if (!_current(generation, session)) return;
+      setState(() {
+        _videos = page.items;
+        _videoPage = page.page;
+        _videoTotal = page.total;
+      });
+    } catch (_) {
+      if (_current(generation, session)) setState(() => _videosFailed = true);
+    } finally {
+      if (_current(generation, session)) setState(() => _videosLoading = false);
+    }
+  }
+
+  Future<void> _loadPlaylists(
+    ChannelDetail channel,
+    int generation,
+    int session,
+  ) async {
+    if (!_current(generation, session) || _playlistsLoading) return;
+    setState(() {
+      _playlistsLoading = true;
+      _playlistsFailed = false;
+    });
+    try {
+      // The channel page is public, including when its owner is viewing it.
+      // Private library playlists belong to the account / Studio screens.
+      final lists = await PlaylistService(
+        widget.auth,
+      ).publicByChannel(channel.id);
+      if (_current(generation, session)) setState(() => _playlists = lists);
+    } catch (_) {
+      if (_current(generation, session)) {
+        setState(() => _playlistsFailed = true);
+      }
+    } finally {
+      if (_current(generation, session)) {
+        setState(() => _playlistsLoading = false);
       }
     }
   }
+
+  Future<void> _loadSubscription(
+    ChannelDetail channel,
+    int generation,
+    int session,
+  ) async {
+    if (!_current(generation, session)) return;
+    if (!widget.auth.authenticated || channel.isOwner) {
+      setState(() {
+        _subscriptionLoading = false;
+        _subscriptionFailed = false;
+      });
+      return;
+    }
+    setState(() {
+      _subscriptionLoading = true;
+      _subscriptionFailed = false;
+    });
+    try {
+      final status = await _channelService.getSubscriptionStatus(channel.id);
+      if (!_current(generation, session)) return;
+      setState(() {
+        _isSubscribed = status?['status'] == 'active';
+        _notificationsEnabled =
+            _isSubscribed && status?['notificationsEnabled'] == true;
+      });
+    } catch (_) {
+      if (_current(generation, session)) {
+        setState(() => _subscriptionFailed = true);
+      }
+    } finally {
+      if (_current(generation, session)) {
+        setState(() => _subscriptionLoading = false);
+      }
+    }
+  }
+
+  Widget _sectionNotice(String key, VoidCallback retry) => HuTubeNotice(
+    message: AppStrings.t(key),
+    actionLabel: AppStrings.t('channel.retry'),
+    onAction: retry,
+  );
+
+  Widget _videosNotice(ChannelDetail c) => _sectionNotice(
+    'channel.videosLoadError',
+    () => _loadVideos(c, _loadGeneration, widget.auth.sessionGeneration),
+  );
 
   Future<void> _loadTrailer(ChannelDetail detail, int generation) async {
     final id = _parseTrailerVideoId(detail.settings);
@@ -177,7 +325,13 @@ class _ChannelScreenState extends State<ChannelScreen>
   }
 
   Future<void> _toggleSubscribe() async {
-    if (_subscriptionBusy || _channel == null) return;
+    if (_subscriptionBusy ||
+        _subscriptionLoading ||
+        _subscriptionFailed ||
+        _channel == null ||
+        _contentUnavailable) {
+      return;
+    }
     if (!widget.auth.authenticated) {
       context.go('/auth');
       return;
@@ -232,6 +386,7 @@ class _ChannelScreenState extends State<ChannelScreen>
   }
 
   Future<void> _toggleNotifications() async {
+    if (_contentUnavailable) return;
     if (!widget.auth.authenticated) {
       context.go('/auth');
       return;
@@ -300,6 +455,16 @@ class _ChannelScreenState extends State<ChannelScreen>
                   _error ?? AppStrings.t('channel.notFound'),
                   textAlign: TextAlign.center,
                 ),
+                if (_errorReference != null) ...[
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    _errorReference!,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textMutedFor(context),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: _load,
@@ -346,6 +511,11 @@ class _ChannelScreenState extends State<ChannelScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (_contentUnavailable)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: _channelStatusNotice(c),
+                  ),
                 // Banner
                 Container(
                   height: 120,
@@ -540,7 +710,11 @@ class _ChannelScreenState extends State<ChannelScreen>
                                       : Colors.white,
                                   elevation: 0,
                                 ),
-                                onPressed: _subscriptionBusy
+                                onPressed:
+                                    (_contentUnavailable ||
+                                        _subscriptionBusy ||
+                                        _subscriptionLoading ||
+                                        _subscriptionFailed)
                                     ? null
                                     : _toggleSubscribe,
                                 child: Text(
@@ -552,7 +726,12 @@ class _ChannelScreenState extends State<ChannelScreen>
                             ),
                             const SizedBox(width: 8),
                             IconButton.filledTonal(
-                              onPressed: _toggleNotifications,
+                              onPressed:
+                                  _contentUnavailable ||
+                                      _subscriptionLoading ||
+                                      _subscriptionFailed
+                                  ? null
+                                  : _toggleNotifications,
                               tooltip: _notificationsEnabled
                                   ? AppStrings.t('channel.notificationsOff')
                                   : AppStrings.t('channel.notificationsOn'),
@@ -576,6 +755,20 @@ class _ChannelScreenState extends State<ChannelScreen>
               ],
             ),
           ),
+          if (_subscriptionFailed)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: _sectionNotice(
+                  'channel.subscriptionLoadError',
+                  () => _loadSubscription(
+                    c,
+                    _loadGeneration,
+                    widget.auth.sessionGeneration,
+                  ),
+                ),
+              ),
+            ),
           SliverPersistentHeader(
             pinned: true,
             delegate: _SliverAppBarDelegate(
@@ -606,7 +799,109 @@ class _ChannelScreenState extends State<ChannelScreen>
     );
   }
 
+  Widget _channelStatusNotice(ChannelDetail channel) {
+    final colors = Theme.of(context).colorScheme;
+    final suspended = channel.status.toLowerCase() == 'suspended';
+    return Semantics(
+      liveRegion: true,
+      child: HuTubeSurface(
+        key: const ValueKey('channel-status-notice'),
+        color: colors.errorContainer,
+        border: BorderSide.none,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.pause_circle_outline_rounded,
+                  color: colors.onErrorContainer,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    AppStrings.t(
+                      suspended
+                          ? 'channel.suspendedTitle'
+                          : 'channel.inactiveTitle',
+                    ),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: colors.onErrorContainer,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              AppStrings.t('channel.contentUnavailable'),
+              style: TextStyle(color: colors.onErrorContainer, height: 1.5),
+            ),
+            if (channel.isOwner) ...[
+              const SizedBox(height: 8),
+              Text(
+                channel.statusReason?.trim().isNotEmpty == true
+                    ? AppStrings.format('channel.suspensionReason', {
+                        'reason': channel.statusReason!.trim(),
+                      })
+                    : AppStrings.t('channel.suspensionReasonMissing'),
+                style: TextStyle(color: colors.onErrorContainer, height: 1.5),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => Scaffold(
+                        appBar: AppBar(
+                          title: Text(AppStrings.t('moderation.title')),
+                        ),
+                        body: ModerationScreen(
+                          auth: widget.auth,
+                          channel: channel,
+                        ),
+                      ),
+                    ),
+                  );
+                  if (mounted) _load();
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: colors.onErrorContainer,
+                  side: BorderSide(
+                    color: colors.onErrorContainer.withValues(alpha: .4),
+                  ),
+                ),
+                icon: const Icon(Icons.policy_outlined, size: 18),
+                label: Text(AppStrings.t('channel.statusAndAppeal')),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _unavailableTab() => ListView(
+    padding: const EdgeInsets.all(24),
+    children: [
+      Icon(
+        Icons.visibility_off_outlined,
+        size: 32,
+        color: AppColors.textMutedFor(context),
+      ),
+      const SizedBox(height: 12),
+      Text(
+        AppStrings.t('channel.contentUnavailable'),
+        textAlign: TextAlign.center,
+        style: TextStyle(color: AppColors.textMutedFor(context), height: 1.5),
+      ),
+    ],
+  );
+
   Widget _homeTab(ChannelDetail c) {
+    if (_contentUnavailable) return _unavailableTab();
     final trailerId = _parseTrailerVideoId(c.settings);
     VideoCard? trailerVideo;
     if (trailerId != null) {
@@ -676,7 +971,11 @@ class _ChannelScreenState extends State<ChannelScreen>
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         const SizedBox(height: 12),
-        if (_videos.isEmpty)
+        if (_videosLoading)
+          const LinearProgressIndicator(minHeight: 2)
+        else if (_videosFailed)
+          _videosNotice(c)
+        else if (_videos.isEmpty)
           Text(
             AppStrings.t('channel.noPublicVideos'),
             style: TextStyle(color: AppColors.textSecondaryFor(context)),
@@ -689,6 +988,18 @@ class _ChannelScreenState extends State<ChannelScreen>
   }
 
   Widget _videosTab(ChannelDetail c) {
+    if (_contentUnavailable) return _unavailableTab();
+    if (_videosLoading || _videosFailed) {
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (_videosLoading)
+            const LinearProgressIndicator(minHeight: 2)
+          else
+            _videosNotice(c),
+        ],
+      );
+    }
     return ListView(
       padding: const EdgeInsets.all(16),
       children: _videos.isEmpty
@@ -710,6 +1021,25 @@ class _ChannelScreenState extends State<ChannelScreen>
   }
 
   Widget _playlistsTab() {
+    if (_contentUnavailable) return _unavailableTab();
+    if (_playlistsLoading || _playlistsFailed) {
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (_playlistsLoading)
+            const LinearProgressIndicator(minHeight: 2)
+          else
+            _sectionNotice(
+              'channel.playlistsLoadError',
+              () => _loadPlaylists(
+                _channel!,
+                _loadGeneration,
+                widget.auth.sessionGeneration,
+              ),
+            ),
+        ],
+      );
+    }
     if (_playlists.isNotEmpty) {
       return ListView.separated(
         padding: const EdgeInsets.all(16),
@@ -777,6 +1107,18 @@ class _ChannelScreenState extends State<ChannelScreen>
         ),
         const SizedBox(height: 24),
         const Divider(),
+        if (c.contactEmail?.isNotEmpty == true)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.mail_outline_rounded),
+            title: Text(AppStrings.t('channel.contactEmail')),
+            subtitle: Text(c.contactEmail!),
+            trailing: const Icon(Icons.open_in_new_rounded, size: 18),
+            onTap: () => launchUrl(
+              Uri(scheme: 'mailto', path: c.contactEmail),
+              mode: LaunchMode.externalApplication,
+            ),
+          ),
         const SizedBox(height: 16),
         Text(
           AppStrings.t('channel.detailedInfo'),

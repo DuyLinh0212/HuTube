@@ -18,6 +18,10 @@ class LocalDownload {
     required this.progress,
     this.filePath,
     this.error,
+    this.thumbnailUrl,
+    this.thumbnailPath,
+    this.channelName = '',
+    this.duration = 0,
   });
 
   final String id;
@@ -30,6 +34,10 @@ class LocalDownload {
   final double progress;
   final String? filePath;
   final String? error;
+  final String? thumbnailUrl;
+  final String? thumbnailPath;
+  final String channelName;
+  final int duration;
 
   bool get completed => status == 'completed';
   bool get active => status == 'downloading';
@@ -40,6 +48,10 @@ class LocalDownload {
     String? filePath,
     String? error,
     bool clearError = false,
+    String? thumbnailUrl,
+    String? thumbnailPath,
+    String? channelName,
+    int? duration,
   }) => LocalDownload(
     id: id,
     videoId: videoId,
@@ -51,6 +63,10 @@ class LocalDownload {
     progress: progress ?? this.progress,
     filePath: filePath ?? this.filePath,
     error: clearError ? null : error ?? this.error,
+    thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+    thumbnailPath: thumbnailPath ?? this.thumbnailPath,
+    channelName: channelName ?? this.channelName,
+    duration: duration ?? this.duration,
   );
 
   factory LocalDownload.fromJson(Map<String, dynamic> json) => LocalDownload(
@@ -64,6 +80,10 @@ class LocalDownload {
     progress: (json['progress'] as num?)?.toDouble() ?? 0,
     filePath: json['filePath'] as String?,
     error: json['error'] as String?,
+    thumbnailUrl: json['thumbnailUrl'] as String?,
+    thumbnailPath: json['thumbnailPath'] as String?,
+    channelName: '${json['channelName'] ?? ''}',
+    duration: (json['duration'] as num?)?.toInt() ?? 0,
   );
 
   Map<String, dynamic> toJson() => {
@@ -77,6 +97,10 @@ class LocalDownload {
     'progress': progress,
     'filePath': filePath,
     'error': error,
+    'thumbnailUrl': thumbnailUrl,
+    'thumbnailPath': thumbnailPath,
+    'channelName': channelName,
+    'duration': duration,
   };
 }
 
@@ -101,6 +125,7 @@ class LocalDownloadManager extends ChangeNotifier {
   static final instance = LocalDownloadManager._();
   final List<LocalDownload> _items = [];
   final Map<String, http.Client> _clients = {};
+  final Map<String, http.Client> _thumbnailClients = {};
   String? _owner;
   int _generation = 0;
   Future<void>? _loading;
@@ -160,6 +185,10 @@ class LocalDownloadManager extends ChangeNotifier {
       client.close();
     }
     _clients.clear();
+    for (final client in _thumbnailClients.values) {
+      client.close();
+    }
+    _thumbnailClients.clear();
     _items.clear();
     notifyListeners();
     _loading = owner == null ? Future.value() : _load(_generation, owner);
@@ -244,7 +273,14 @@ class LocalDownloadManager extends ChangeNotifier {
   void _replace(String id, LocalDownload item, {bool persist = true}) {
     final index = _items.indexWhere((entry) => entry.id == id);
     if (index < 0) return;
-    _items[index] = item;
+    // A transfer snapshot may predate thumbnail metadata arriving from the API.
+    final previous = _items[index];
+    _items[index] = item.copyWith(
+      thumbnailUrl: item.thumbnailUrl ?? previous.thumbnailUrl,
+      thumbnailPath: item.thumbnailPath ?? previous.thumbnailPath,
+      channelName: item.channelName.isEmpty ? previous.channelName : null,
+      duration: item.duration == 0 ? previous.duration : null,
+    );
     if (persist) unawaited(_persist().catchError((Object _) {}));
     notifyListeners();
   }
@@ -256,6 +292,9 @@ class LocalDownloadManager extends ChangeNotifier {
     required String quality,
     required String url,
     required int fileSize,
+    String? thumbnailUrl,
+    String channelName = '',
+    int duration = 0,
   }) async {
     final generation = _generation;
     await ensureLoaded();
@@ -273,11 +312,104 @@ class LocalDownloadManager extends ChangeNotifier {
         totalBytes: fileSize,
         status: 'queued',
         progress: 0,
+        thumbnailUrl: thumbnailUrl,
+        channelName: channelName,
+        duration: duration,
       ),
     );
     await _persist();
     notifyListeners();
     unawaited(_start(id));
+  }
+
+  Future<void> updateMetadata(
+    String id, {
+    String? thumbnailUrl,
+    String? channelName,
+    int? duration,
+  }) async {
+    final index = _items.indexWhere((item) => item.id == id);
+    if (index < 0) return;
+    final previous = _items[index];
+    final next = previous.copyWith(
+      thumbnailUrl: thumbnailUrl?.isNotEmpty == true ? thumbnailUrl : null,
+      channelName: channelName?.isNotEmpty == true ? channelName : null,
+      duration: duration != null && duration > 0 ? duration : null,
+    );
+    if (next.thumbnailUrl != previous.thumbnailUrl ||
+        next.channelName != previous.channelName ||
+        next.duration != previous.duration) {
+      _replace(id, next);
+    }
+    await _cacheThumbnail(id);
+  }
+
+  Future<void> _cacheThumbnail(String id) async {
+    if (!_connected ||
+        (_wifiOnly && !_wifi) ||
+        _thumbnailClients.containsKey(id)) {
+      return;
+    }
+    final index = _items.indexWhere((item) => item.id == id);
+    final owner = _owner, generation = _generation;
+    if (index < 0 || owner == null) return;
+    final item = _items[index];
+    if (item.thumbnailPath != null && File(item.thumbnailPath!).existsSync()) {
+      return;
+    }
+    final uri = Uri.tryParse(item.thumbnailUrl ?? '');
+    if (uri == null ||
+        !['https', 'http'].contains(uri.scheme) ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty) {
+      return;
+    }
+    final client = _clientFactory();
+    _thumbnailClients[id] = client;
+    bool current() =>
+        generation == _generation &&
+        _owner == owner &&
+        identical(_thumbnailClients[id], client) &&
+        _items.any((item) => item.id == id);
+    File? target;
+    try {
+      final response = await client
+          .send(http.Request('GET', uri))
+          .timeout(const Duration(seconds: 8));
+      if (!current() ||
+          response.statusCode != 200 ||
+          (response.contentLength ?? 0) > 3 * 1024 * 1024) {
+        return;
+      }
+      final bytes = <int>[];
+      await for (final chunk in response.stream.timeout(
+        const Duration(seconds: 8),
+      )) {
+        if (!current() || bytes.length + chunk.length > 3 * 1024 * 1024) return;
+        bytes.addAll(chunk);
+      }
+      if (!current() || bytes.isEmpty) return;
+      final directory = await _directory(owner);
+      if (!current()) return;
+      final safeId = id.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+      target = File(
+        '${directory.path}${Platform.pathSeparator}$safeId.thumbnail',
+      );
+      await target.writeAsBytes(bytes, flush: true);
+      if (!current()) {
+        await target.delete();
+        return;
+      }
+      final latest = _items.firstWhere((item) => item.id == id);
+      _replace(id, latest.copyWith(thumbnailPath: target.path));
+    } catch (_) {
+      // Cover art is optional; a failed image must never fail the video transfer.
+    } finally {
+      if (identical(_thumbnailClients[id], client)) {
+        _thumbnailClients.remove(id);
+      }
+      client.close();
+    }
   }
 
   Future<void> retry(String id) async {
@@ -304,6 +436,7 @@ class LocalDownloadManager extends ChangeNotifier {
     final index = _items.indexWhere((entry) => entry.id == id);
     if (index < 0) return;
     final item = _items[index];
+    unawaited(_cacheThumbnail(id));
     final blocked = _blocked(item);
     if (blocked != null) {
       _replace(id, item.copyWith(status: blocked, clearError: true));
@@ -313,6 +446,7 @@ class LocalDownloadManager extends ChangeNotifier {
     _clients[id] = client;
     IOSink? sink;
     File? temporary;
+    var failed = false;
     bool current() =>
         generation == _generation &&
         _owner == owner &&
@@ -385,19 +519,27 @@ class LocalDownloadManager extends ChangeNotifier {
         );
       }
     } catch (_) {
-      if (current()) {
+      failed = true;
+    } finally {
+      try {
+        await sink?.close();
+        if (temporary != null && await temporary.exists()) {
+          await temporary.delete();
+        }
+      } catch (_) {
+        // File cleanup must still release the transfer so retry stays usable.
+      }
+      final publishFailure = failed && current();
+      if (identical(_clients[id], client)) _clients.remove(id);
+      client.close();
+      if (publishFailure) {
+        // Publish failure only after releasing the old client. A listener or
+        // immediate tap on Retry can now start the next transfer.
         _replace(
           id,
           item.copyWith(status: 'failed', error: 'downloads.fileError'),
         );
       }
-    } finally {
-      await sink?.close();
-      if (temporary != null && await temporary.exists()) {
-        await temporary.delete();
-      }
-      if (identical(_clients[id], client)) _clients.remove(id);
-      client.close();
     }
   }
 
@@ -406,11 +548,16 @@ class LocalDownloadManager extends ChangeNotifier {
     await ensureLoaded();
     if (generation != _generation) return;
     _clients.remove(id)?.close();
+    _thumbnailClients.remove(id)?.close();
     final index = _items.indexWhere((entry) => entry.id == id);
     if (index < 0) return;
     final item = _items.removeAt(index);
     if (item.filePath != null && await File(item.filePath!).exists()) {
       await File(item.filePath!).delete();
+    }
+    if (item.thumbnailPath != null &&
+        await File(item.thumbnailPath!).exists()) {
+      await File(item.thumbnailPath!).delete();
     }
     await _persist();
     notifyListeners();

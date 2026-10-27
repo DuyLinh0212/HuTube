@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-
 import 'package:better_native_video_player/better_native_video_player.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -14,8 +13,41 @@ import 'package:user_app/core/theme/app_theme.dart';
 import 'package:user_app/features/content/mini_player.dart';
 import 'package:user_app/features/content/playback_session.dart';
 import 'package:user_app/features/content/watch_screen.dart';
-
 import 'auth_test.dart' show MemoryStore, jsonResponse, session;
+import 'dart:io';
+import 'package:user_app/core/localization/app_strings.dart';
+import 'package:user_app/features/content/content_models.dart';
+import 'package:user_app/features/creator/video_frame_picker.dart';
+import 'profile_links_parity_test.dart' show profileData, openPage;
+import 'package:http/http.dart' as http;
+import 'package:user_app/app/mobile_scaffold.dart';
+import 'package:user_app/features/notifications/notification_center.dart';
+
+class _MemoryStore implements TokenStore {
+  @override
+  Future<String?> read() async => null;
+
+  @override
+  Future<void> write(String token) async {}
+
+  @override
+  Future<void> clear() async {}
+}
+
+class _FakePlaybackSession extends PlaybackSession {
+  bool active = false;
+  bool restored = false;
+
+  @override
+  bool get hasVideo => active;
+
+  @override
+  void restore() {
+    restored = true;
+    minimized = false;
+    notifyListeners();
+  }
+}
 
 void main() {
   testWidgets(
@@ -64,7 +96,23 @@ void main() {
       final image = tester.getRect(
         find.byKey(const ValueKey('mini-player-video')),
       );
-      await tester.tapAt(image.topLeft + const Offset(8, 8));
+      await tester.dragFrom(image.center, const Offset(-180, -120));
+      await tester.pumpAndSettle();
+      final moved = tester.getRect(
+        find.byKey(const ValueKey('mini-player-video')),
+      );
+      expect(moved.left, lessThan(image.left));
+      expect(moved.top, lessThan(image.top));
+      expect(playback.minimized, isTrue);
+      // Clamp large drags to the viewport and preserve tap-to-restore.
+      await tester.dragFrom(moved.center, const Offset(-2000, -2000));
+      await tester.pumpAndSettle();
+      final clamped = tester.getRect(
+        find.byKey(const ValueKey('mini-player-video')),
+      );
+      expect(clamped.left, greaterThanOrEqualTo(0));
+      expect(clamped.top, greaterThanOrEqualTo(0));
+      await tester.tapAt(clamped.topLeft + const Offset(8, 8));
       await tester.pumpAndSettle();
       expect(find.text('Watching current'), findsOneWidget);
       expect(playback.minimized, isFalse);
@@ -280,15 +328,20 @@ void main() {
         await tester.tap(replyButton);
         await tester.pumpAndSettle();
         await tester.enterText(
-          find.byKey(const ValueKey('text-entry-input')),
+          find.byKey(const ValueKey('thread-reply-input')),
           'Phản hồi mới',
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(FilledButton, 'Gửi'));
+        await tester.tap(find.byTooltip('Gửi').last);
         await tester.pumpAndSettle();
-        expect(find.byKey(const ValueKey('text-entry-input')), findsNothing);
+        expect(
+          find.byKey(const ValueKey('thread-reply-input')),
+          findsOneWidget,
+        );
         expect(find.text('Phản hồi mới'), findsOneWidget);
         expect(tester.takeException(), isNull);
+        await tester.tap(find.byTooltip('Đóng').last);
+        await tester.pumpAndSettle();
         final list = find
             .descendant(
               of: find.byKey(const ValueKey('watch-comments-list')),
@@ -332,4 +385,203 @@ void main() {
       },
     );
   }
+
+  group('subscription notifications and frame selection', () {
+    setUp(() {
+      FlutterSecureStorage.setMockInitialValues({});
+      ApiClient.invalidateReadCache();
+    });
+    testWidgets('watch toggles notifications for an active subscription', (
+      tester,
+    ) async {
+      var patches = 0;
+      final client = MockClient((r) async {
+        if (r.url.path.endsWith('/channels/me')) return jsonResponse({}, 404);
+        if (r.url.path.endsWith('/subscribe-status')) {
+          return jsonResponse({
+            'status': 'active',
+            'notificationsEnabled': false,
+          });
+        }
+        if (r.url.path.endsWith('/subscribe-notifications')) {
+          patches++;
+          expect(r.method, 'PATCH');
+          expect(r.body, contains('"enabled":true'));
+          return jsonResponse({'notificationsEnabled': true});
+        }
+        if (r.url.path.endsWith('/videos/video')) {
+          return jsonResponse({
+            'videoId': 'video',
+            'channelId': 'other',
+            'channelName': 'Channel',
+            'channelHandle': 'other',
+            'title': 'Video',
+          });
+        }
+        return jsonResponse({'items': []});
+      });
+      final auth = AuthController(ApiClient(client: client), MemoryStore())
+        ..user = profileData;
+      final playback = PlaybackSession()
+        ..videoId = 'video'
+        ..ready = true;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: WatchScreen(auth: auth, playback: playback, videoId: 'video'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final bell = find.byKey(
+        const ValueKey('watch-subscription-notifications'),
+      );
+      await tester.scrollUntilVisible(
+        bell,
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(bell);
+      await tester.pumpAndSettle();
+      expect(patches, 1);
+      expect(find.byIcon(Icons.notifications_active_rounded), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      playback.dispose();
+      auth.dispose();
+      client.close();
+    });
+    testWidgets(
+      'thumbnail frame picker requests selected timestamp and keeps chosen file for upload',
+      (tester) async {
+        final root = (await tester.runAsync(() async {
+          final directory = await Directory.systemTemp.createTemp(
+            'dalitu-frames-',
+          );
+          for (final index in [1, 2]) {
+            await File(
+              'test/fixtures/thumbnail-frame.jpg',
+            ).copy('${directory.path}/frame-$index.jpg');
+          }
+          return directory;
+        }))!;
+        final requested = <double>[];
+        final messenger = tester.binding.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(
+          const MethodChannel('hutube/media_tools'),
+          (call) async {
+            expect(call.method, 'extractFrame');
+            requested.add((call.arguments['seconds'] as num).toDouble());
+            return '${root.path}/frame-${requested.length}.jpg';
+          },
+        );
+        final client = MockClient(
+          (_) async => jsonResponse({
+            'renditions': [
+              {
+                'quality': '720p',
+                'height': 720,
+                'url': 'https://media.test/video.mp4',
+              },
+            ],
+          }),
+        );
+        final auth = AuthController(ApiClient(client: client), MemoryStore())
+          ..user = profileData;
+        await openPage(
+          tester,
+          VideoFramePicker(
+            auth: auth,
+            video: VideoDetail.fromJson({'videoId': 'video', 'duration': 120}),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(requested, [0]);
+        await tester.scrollUntilVisible(
+          find.byType(Slider),
+          150,
+          scrollable: find.byType(Scrollable).first,
+        );
+        final slider = tester.widget<Slider>(find.byType(Slider));
+        slider.onChanged!(45);
+        slider.onChangeEnd!(45);
+        await tester.pumpAndSettle();
+        expect(requested, [0, 45]);
+        await tester.tap(
+          find.widgetWithText(FilledButton, AppStrings.t('creator.useFrame')),
+        );
+        await tester.pumpAndSettle();
+        await tester.runAsync(() async {
+          expect(await File('${root.path}/frame-2.jpg').exists(), isTrue);
+          expect(
+            root.absolute.path.startsWith(
+              '${Directory.systemTemp.absolute.path}${Platform.pathSeparator}',
+            ),
+            isTrue,
+          );
+          await root.delete(recursive: true);
+        });
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        auth.dispose();
+        client.close();
+        messenger.setMockMethodCallHandler(
+          const MethodChannel('hutube/media_tools'),
+          null,
+        );
+      },
+    );
+  });
+
+  group('mini-player back navigation', () {
+    testWidgets('Back restores a minimized video after switching shell pages', (
+      tester,
+    ) async {
+      final auth = AuthController(
+        ApiClient(client: http.Client()),
+        _MemoryStore(),
+      );
+      final playback = _FakePlaybackSession()
+        ..active = true
+        ..videoId = 'video-a'
+        ..minimized = true;
+      final notifications = NotificationCenter(auth);
+      final router = GoRouter(
+        initialLocation: '/home',
+        routes: [
+          ShellRoute(
+            builder: (context, state, child) => MobileScaffold(
+              auth: auth,
+              playback: playback,
+              notifications: notifications,
+              location: state.uri.path,
+              child: child,
+            ),
+            routes: [
+              GoRoute(path: '/home', builder: (_, _) => const Text('home')),
+              GoRoute(
+                path: '/explore',
+                builder: (_, _) => const Text('explore'),
+              ),
+              GoRoute(
+                path: '/watch/:videoId',
+                builder: (_, state) =>
+                    Text('watch:${state.pathParameters['videoId']}'),
+              ),
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.pumpAndSettle();
+      router.go('/explore');
+      await tester.pumpAndSettle();
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(playback.restored, isTrue);
+      expect(router.state.uri.path, '/watch/video-a');
+      expect(find.text('watch:video-a'), findsOneWidget);
+    });
+  });
 }

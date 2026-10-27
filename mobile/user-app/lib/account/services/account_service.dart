@@ -2,6 +2,7 @@ import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
 import '../models/account_models.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/storage/app_preferences.dart';
 
 class AccountService {
   AccountService(this.auth);
@@ -17,23 +18,44 @@ class AccountService {
     String? bio,
     String? country,
   }) async {
+    final session = auth.sessionGeneration;
     final res = await auth.protected(
       'PATCH',
       '/account/profile',
       body: {'displayName': displayName.trim(), 'bio': bio?.trim()},
     );
+    if (session != auth.sessionGeneration) {
+      throw ApiFailure(
+        401,
+        'SESSION_EXPIRED',
+        AppStrings.t('common.loginAgain'),
+      );
+    }
     if (country != null && country.trim().isNotEmpty) {
-      final preferences = await getPreferences();
-      await updatePreferences(preferences.copyWith(location: country.trim()));
+      await auth.protected(
+        'PUT',
+        '/account/settings',
+        body: {'location': country.trim()},
+      );
+    }
+    if (session != auth.sessionGeneration) {
+      throw ApiFailure(
+        401,
+        'SESSION_EXPIRED',
+        AppStrings.t('common.loginAgain'),
+      );
     }
     // Update local user if displayName changed
-    if (auth.user != null) {
-      auth.user!['displayName'] = res['displayName'];
-    }
-    return UserProfile.fromJson(res);
+    final profile = UserProfile.fromJson(res).copyWith(country: country);
+    auth.updateUserProfile(
+      displayName: profile.displayName,
+      avatarUrl: profile.avatarUrl,
+    );
+    return profile;
   }
 
   Future<UserProfile> uploadAvatar(XFile image) async {
+    final session = auth.sessionGeneration;
     final mime = image.mimeType ?? _imageMime(image.name);
     const allowed = {'image/jpeg', 'image/png', 'image/webp', 'image/gif'};
     if (!allowed.contains(mime)) {
@@ -60,7 +82,17 @@ class AccountService {
       ),
     );
     final profile = UserProfile.fromJson(response);
-    if (auth.user != null) auth.user!['avatarUrl'] = profile.avatarUrl;
+    if (session != auth.sessionGeneration) {
+      throw ApiFailure(
+        401,
+        'SESSION_EXPIRED',
+        AppStrings.t('common.loginAgain'),
+      );
+    }
+    auth.updateUserProfile(
+      displayName: profile.displayName,
+      avatarUrl: profile.avatarUrl,
+    );
     return profile;
   }
 
@@ -103,7 +135,16 @@ class AccountService {
 
   Future<UserPreferencesModel> getPreferences() async {
     final res = await auth.protected('GET', '/account/settings');
-    return UserPreferencesModel.fromJson(res);
+    const store = AppPreferencesStore();
+    var autoplay = true;
+    var quality = 'auto';
+    try {
+      autoplay = await store.readAutoplayNext();
+      quality = await store.readPlaybackQuality();
+    } catch (_) {}
+    return UserPreferencesModel.fromJson(
+      res,
+    ).copyWith(autoplayNext: autoplay, defaultPlaybackQuality: quality);
   }
 
   Future<UserPreferencesModel> updatePreferences(
@@ -114,7 +155,26 @@ class AccountService {
       '/account/settings',
       body: preferences.toJson(),
     );
-    return UserPreferencesModel.fromJson(res);
+    const store = AppPreferencesStore();
+    if (await store.readAutoplayNext() != preferences.autoplayNext) {
+      await store.writeAutoplayNext(preferences.autoplayNext);
+    }
+    if (await store.readPlaybackQuality() !=
+        preferences.defaultPlaybackQuality) {
+      await store.writePlaybackQuality(preferences.defaultPlaybackQuality);
+    }
+    return UserPreferencesModel.fromJson(res).copyWith(
+      autoplayNext: preferences.autoplayNext,
+      defaultPlaybackQuality: preferences.defaultPlaybackQuality,
+    );
+  }
+
+  Future<void> updateAppearance({String? language, String? theme}) async {
+    await auth.protected(
+      'PUT',
+      '/account/settings',
+      body: {'language': ?language, 'theme': ?theme},
+    );
   }
 
   Future<List<Map<String, dynamic>>> getSessions() async {

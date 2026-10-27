@@ -2,7 +2,11 @@ import '../../core/widgets/modal_header.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../channel/screens/channel_links_screen.dart';
+import '../../channel/models/channel_links.dart';
 
 import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
@@ -119,6 +123,55 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppStrings.t('account.profileLoadError'))),
       );
+    }
+  }
+
+  Future<void> _openLinksEditor() async {
+    final channel = _myChannel;
+    if (channel == null) {
+      await _open(CreateChannelScreen(auth: widget.auth));
+    } else {
+      await _open(ChannelLinksScreen(auth: widget.auth, channel: channel));
+    }
+  }
+
+  Future<void> _setAppearance({String? language, String? theme}) async {
+    final session = widget.auth.sessionGeneration;
+    if (language != null) {
+      AppStrings.setLanguage(language);
+    }
+    if (theme != null) ThemeNotifier.setTheme(theme);
+    if (mounted) setState(() {});
+    try {
+      if (language != null) await _prefs.writeLanguage(language);
+      if (!widget.auth.authenticated ||
+          session != widget.auth.sessionGeneration) {
+        return;
+      }
+      await _accountService.updateAppearance(language: language, theme: theme);
+    } catch (_) {
+      if (mounted && session == widget.auth.sessionGeneration) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppStrings.t('prefs.syncError'))),
+        );
+      }
+    }
+  }
+
+  Future<void> _openPublicLink(String url) async {
+    if (!isPublicWebLink(url)) return;
+    try {
+      if (await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      )) {
+        return;
+      }
+    } catch (_) {}
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(AppStrings.t('auth.linkError'))));
     }
   }
 
@@ -306,9 +359,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                 title: const Text('Tiếng Việt (VI) 🇻🇳'),
                 onTap: () {
                   Navigator.pop(ctx);
-                  AppStrings.setLanguage('vi');
-                  _prefs.writeLanguage('vi');
-                  setState(() {});
+                  _setAppearance(language: 'vi');
                 },
               ),
               ListTile(
@@ -323,9 +374,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                 title: const Text('English (EN) 🇺🇸'),
                 onTap: () {
                   Navigator.pop(ctx);
-                  AppStrings.setLanguage('en');
-                  _prefs.writeLanguage('en');
-                  setState(() {});
+                  _setAppearance(language: 'en');
                 },
               ),
             ],
@@ -500,8 +549,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                                 : const Color(0xFF222222),
                           ),
                           onPressed: () {
-                            ThemeNotifier.setTheme(isDark ? 'light' : 'dark');
-                            setState(() {});
+                            _setAppearance(theme: isDark ? 'light' : 'dark');
                           },
                         ),
                       ),
@@ -530,7 +578,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                   borderRadius: BorderRadius.circular(14),
                   onTap: () {
                     if (_myChannel != null) {
-                      context.push('/channels/${_myChannel!.handle}');
+                      context.push('/channels/${_myChannel!.id}');
                     } else {
                       _open(CreateChannelScreen(auth: widget.auth));
                     }
@@ -771,7 +819,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                   textColor: textColor,
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => const PlaybackSettingsScreen(),
+                      builder: (_) => PlaybackSettingsScreen(auth: widget.auth),
                     ),
                   ),
                 ),
@@ -787,7 +835,8 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                   textColor: textColor,
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => const BackgroundDownloadSettingsScreen(),
+                      builder: (_) =>
+                          BackgroundDownloadSettingsScreen(auth: widget.auth),
                     ),
                   ),
                 ),
@@ -829,18 +878,22 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                       ),
                     ),
                     TextButton(
-                      onPressed: _openProfileEditor,
+                      key: const ValueKey('settings-edit-links'),
+                      onPressed: _openLinksEditor,
                       style: TextButton.styleFrom(
                         foregroundColor: AppColors.primaryPink,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
                           vertical: 4,
                         ),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        minimumSize: const Size(48, 48),
                       ),
                       child: Text(
-                        AppStrings.t('common.edit'),
+                        AppStrings.t(
+                          _myChannel == null
+                              ? 'creator.createChannel'
+                              : 'common.edit',
+                        ),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13.5,
@@ -860,35 +913,87 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: cardBorderColor),
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.link_rounded,
-                        size: 20,
-                        color: AppColors.primaryPink,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          _profile?.bio?.isNotEmpty == true
-                              ? _profile!.bio!
-                              : AppStrings.t('settings.noLinksYet'),
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: isDark
-                                ? const Color(0xFFAAAAAA)
-                                : AppColors.textMuted,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                  child: channelLinks(_myChannel?.settings).isNotEmpty
+                      ? Column(
+                          children: channelLinks(_myChannel?.settings)
+                              .map(
+                                (link) => Material(
+                                  type: MaterialType.transparency,
+                                  child: ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: const Icon(Icons.link_rounded),
+                                    title: Text(
+                                      link['title']!.isEmpty
+                                          ? Uri.parse(link['url']!).host
+                                          : link['title']!,
+                                    ),
+                                    subtitle: Text(
+                                      link['url']!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    trailing: const Icon(
+                                      Icons.open_in_new_rounded,
+                                      size: 18,
+                                    ),
+                                    onTap: () => _openPublicLink(link['url']!),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        )
+                      : Row(
+                          children: [
+                            const Icon(
+                              Icons.link_rounded,
+                              size: 20,
+                              color: AppColors.primaryPink,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                AppStrings.t('settings.noLinksYet'),
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: isDark
+                                      ? const Color(0xFFAAAAAA)
+                                      : AppColors.textMuted,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
                 ),
 
                 const SizedBox(height: 24),
 
+                if (_profile?.userId.isNotEmpty == true)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.fingerprint_rounded),
+                    title: Text(AppStrings.t('account.userId')),
+                    subtitle: Text(
+                      _profile!.userId,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: const Icon(Icons.copy_rounded, size: 18),
+                    onTap: () async {
+                      await Clipboard.setData(
+                        ClipboardData(text: _profile!.userId),
+                      );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(AppStrings.t('common.copied')),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                const SizedBox(height: 16),
                 // ================= LOGOUT BUTTON =================
                 OutlinedButton.icon(
                   onPressed: _logout,

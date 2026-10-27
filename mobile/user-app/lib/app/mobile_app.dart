@@ -1,5 +1,6 @@
 import '../channel/screens/create_channel_screen.dart';
 import '../features/creator/upload_controller.dart';
+import '../core/deep_links/content_link.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -174,7 +175,12 @@ class _HuTubeAppState extends State<HuTubeApp> {
           ),
           GoRoute(
             path: '/search',
-            builder: (_, _) => SearchScreen(auth: auth),
+            builder: (_, state) => SearchScreen(
+              auth: auth,
+              initialQuery: state.uri.queryParameters['q'] ?? '',
+              initialTag: state.uri.queryParameters['tag'],
+              initialCategoryId: state.uri.queryParameters['categoryId'],
+            ),
           ),
           GoRoute(
             path: '/playlists',
@@ -278,6 +284,7 @@ class _HuTubeAppState extends State<HuTubeApp> {
               invitationToken:
                   state.uri.queryParameters['invitationToken'] ??
                   state.uri.queryParameters['token'],
+              initialPlanId: state.uri.queryParameters['planId'],
             ),
           ),
           GoRoute(
@@ -387,22 +394,8 @@ class _HuTubeAppState extends State<HuTubeApp> {
       );
       return;
     }
-    if (uri.scheme != 'hutube' || uri.userInfo.isNotEmpty || uri.hasPort) {
-      return;
-    }
-    final segment = uri.pathSegments.isEmpty ? null : uri.pathSegments.first;
-    final target = switch ((uri.host, segment)) {
-      ('watch', final id?) => '/watch/${Uri.encodeComponent(id)}',
-      ('plans', final memberId?) when uri.queryParameters['token'] != null =>
-        '/plans?invitationId=${Uri.encodeQueryComponent(memberId)}&invitationToken=${Uri.encodeQueryComponent(uri.queryParameters['token']!)}',
-      ('plans', _) => '/plans',
-      ('notifications', _) => '/notifications',
-      ('search', _) => '/search',
-      ('playlists', _) => '/playlists',
-      ('policies', _) => '/policies',
-      _ => null,
-    };
-    if (target != null) _router.go(target);
+    final target = contentLinkTarget(uri);
+    if (target != null) _openNotification({'actionUrl': target});
   }
 
   @override

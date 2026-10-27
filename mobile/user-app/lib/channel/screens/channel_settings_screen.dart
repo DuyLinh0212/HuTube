@@ -6,9 +6,11 @@ import '../../auth.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/error_banner.dart';
+import '../../core/widgets/hutube_widgets.dart';
 import '../models/channel_models.dart';
 import '../services/channel_service.dart';
 import '../channel_handle.dart';
+import 'channel_members_screen.dart';
 
 typedef ChannelImagePicker = Future<XFile?> Function(bool avatar);
 
@@ -32,6 +34,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _handleController;
   late final TextEditingController _descriptionController;
+  late final TextEditingController _contactEmailController;
   late final TextEditingController _inviteEmailController;
   late final ChannelService _channelService;
   late ChannelDetail _channel;
@@ -65,6 +68,9 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
       text: _channel.description ?? '',
     );
     _inviteEmailController = TextEditingController();
+    _contactEmailController = TextEditingController(
+      text: _channel.contactEmail ?? '',
+    );
     _parseSettings();
     _loadFreshChannel();
     _loadInviteData();
@@ -79,6 +85,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
         _nameController.text = current.name;
         _handleController.text = current.handle;
         _descriptionController.text = current.description ?? '';
+        _contactEmailController.text = current.contactEmail ?? '';
         _parseSettings();
         _loadingChannelSettings = false;
       });
@@ -155,6 +162,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
     _nameController.dispose();
     _handleController.dispose();
     _descriptionController.dispose();
+    _contactEmailController.dispose();
     _inviteEmailController.dispose();
     super.dispose();
   }
@@ -448,6 +456,13 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
   }
 
   Future<void> _save() async {
+    if (!_channel.can('channel.edit_profile')) return;
+    final email = _contactEmailController.text.trim();
+    if (email.isNotEmpty &&
+        !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+      setState(() => _error = AppStrings.t('channel.contactEmailInvalid'));
+      return;
+    }
     final name = _nameController.text.trim();
     final handle = normalizeChannelHandle(_handleController.text);
     if (_checkingHandle) return;
@@ -498,9 +513,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
           existingSettings = Map<String, dynamic>.from(decoded);
         }
       } catch (_) {}
-      existingSettings
-        ..remove('trailerVideoId')
-        ..['links'] = validLinks;
+      existingSettings['links'] = validLinks;
       final settingsJson = jsonEncode(existingSettings);
 
       await _channelService.updateChannel(
@@ -509,6 +522,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
         handle: handle == _channel.handle.toLowerCase() ? null : handle,
         description: _descriptionController.text.trim(),
         settings: settingsJson,
+        contactEmail: email,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -749,7 +763,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
           borderRadius: BorderRadius.circular(14),
           child: Container(
             key: const ValueKey('channel-banner-preview'),
-            height: 132,
+            height: 120,
             color: AppColors.primaryPink.withValues(alpha: 0.15),
             child: url == null || url.isEmpty
                 ? const Center(
@@ -795,42 +809,69 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
 
   Widget _avatarEditor() {
     final url = _channel.avatarUrl;
-    return Column(
+    const diameter = 104.0;
+    final fallback = HuTubeAvatar(
+      label: _channel.name,
+      radius: diameter / 2,
+      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+      foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+    );
+    return Row(
       children: [
-        CircleAvatar(
+        SizedBox.square(
           key: const ValueKey('channel-avatar-preview'),
-          radius: 48,
-          backgroundColor: AppColors.primaryPink.withValues(alpha: 0.15),
-          backgroundImage: url == null || url.isEmpty
-              ? null
-              : NetworkImage(url),
-          child: url == null || url.isEmpty
-              ? Text(
-                  _channel.name.isEmpty ? 'C' : _channel.name[0].toUpperCase(),
-                  style: const TextStyle(
-                    color: AppColors.primaryPink,
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                  ),
-                )
-              : null,
+          dimension: diameter,
+          child: ClipOval(
+            child: url?.isNotEmpty == true
+                ? Image.network(
+                    url!,
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.high,
+                    cacheWidth:
+                        (diameter * MediaQuery.devicePixelRatioOf(context))
+                            .ceil()
+                            .clamp(104, 1024),
+                    cacheHeight:
+                        (diameter * MediaQuery.devicePixelRatioOf(context))
+                            .ceil()
+                            .clamp(104, 1024),
+                    semanticLabel: AppStrings.t('channel.changeAvatar'),
+                    errorBuilder: (_, _, _) => fallback,
+                  )
+                : fallback,
+          ),
         ),
-        const SizedBox(height: 10),
-        OutlinedButton.icon(
-          key: const ValueKey('upload-channel-avatar'),
-          onPressed: _uploadingAvatar || _uploadingBanner
-              ? null
-              : () => _pickAndUpload(true),
-          icon: _uploadingAvatar
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.account_circle_outlined),
-          label: Text(
-            _uploadingAvatar
-                ? AppStrings.t('channel.uploadingAvatar')
-                : AppStrings.t('channel.changeAvatar'),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              key: const ValueKey('upload-channel-avatar'),
+              style: TextButton.styleFrom(
+                minimumSize: const Size(0, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                textStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onPressed: _uploadingAvatar || _uploadingBanner
+                  ? null
+                  : () => _pickAndUpload(true),
+              icon: _uploadingAvatar
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.photo_camera_outlined, size: 18),
+              label: Text(
+                AppStrings.t(
+                  _uploadingAvatar
+                      ? 'channel.uploadingAvatar'
+                      : 'channel.changeAvatarShort',
+                ),
+              ),
+            ),
           ),
         ),
       ],
@@ -838,101 +879,101 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
   }
 
   Widget _brandingSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceFor(context),
+    return Material(
+      color: AppColors.surfaceFor(context),
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderFor(context)),
+        side: BorderSide(color: AppColors.borderFor(context)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            AppStrings.t('channel.brandingTitle'),
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            AppStrings.t('channel.brandingDescription'),
-            style: TextStyle(
-              color: AppColors.textSecondaryFor(context),
-              fontSize: 12,
-              height: 1.4,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              AppStrings.t('channel.brandingTitle'),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
-          ),
-          const SizedBox(height: 16),
-          _bannerEditor(),
-          const SizedBox(height: 18),
-          _avatarEditor(),
-          const SizedBox(height: 20),
-          Text(
-            AppStrings.t('channel.watermarkTitle'),
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            AppStrings.t('channel.watermarkDescription'),
-            style: TextStyle(
-              color: AppColors.textSecondaryFor(context),
-              fontSize: 12,
-              height: 1.4,
+            const SizedBox(height: 5),
+            Text(
+              AppStrings.t('channel.brandingDescription'),
+              style: TextStyle(
+                color: AppColors.textSecondaryFor(context),
+                fontSize: 12,
+                height: 1.4,
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              onPressed: _busy || _uploadingWatermark
+            const SizedBox(height: 16),
+            _bannerEditor(),
+            const SizedBox(height: 18),
+            _avatarEditor(),
+            const SizedBox(height: 20),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              leading: const Icon(Icons.branding_watermark_outlined),
+              title: Text(AppStrings.t('channel.watermarkTitle')),
+              subtitle: _channel.watermarkUrl?.isNotEmpty == true
                   ? null
-                  : _pickAndUploadWatermark,
-              icon: _uploadingWatermark
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.branding_watermark_outlined),
-              label: Text(AppStrings.t('channel.uploadWatermark')),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            height: 116,
-            decoration: BoxDecoration(
-              color: const Color(0xFF11131A),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Stack(
+                  : Text(AppStrings.t('channel.watermarkPreviewEmpty')),
               children: [
-                const Center(
-                  child: Icon(
-                    Icons.play_circle_outline,
-                    size: 42,
-                    color: Colors.white70,
+                Text(
+                  AppStrings.t('channel.watermarkDescription'),
+                  style: TextStyle(
+                    color: AppColors.textSecondaryFor(context),
+                    fontSize: 12,
+                    height: 1.4,
                   ),
                 ),
-                if (_channel.watermarkUrl?.isNotEmpty == true)
-                  Positioned(
-                    right: 12,
-                    bottom: 12,
-                    child: Image.network(
-                      _channel.watermarkUrl!,
-                      width: 48,
-                      height: 36,
-                      fit: BoxFit.contain,
-                    ),
-                  )
-                else
-                  Center(
-                    child: Text(
-                      AppStrings.t('channel.watermarkPreviewEmpty'),
-                      style: const TextStyle(color: Colors.white60),
-                    ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: _busy || _uploadingWatermark
+                        ? null
+                        : _pickAndUploadWatermark,
+                    icon: _uploadingWatermark
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.branding_watermark_outlined),
+                    label: Text(AppStrings.t('channel.uploadWatermark')),
                   ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  height: 116,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF11131A),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Stack(
+                    children: [
+                      if (_channel.watermarkUrl?.isNotEmpty == true)
+                        Positioned(
+                          right: 12,
+                          bottom: 12,
+                          child: Image.network(
+                            _channel.watermarkUrl!,
+                            width: 48,
+                            height: 36,
+                            fit: BoxFit.contain,
+                          ),
+                        )
+                      else
+                        Center(
+                          child: Text(
+                            AppStrings.t('channel.watermarkPreviewEmpty'),
+                            style: const TextStyle(color: Colors.white60),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -947,8 +988,40 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
+      bottomNavigationBar: _channel.can('channel.edit_profile')
+          ? Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(context).bottom,
+              ),
+              child: Material(
+                color: Theme.of(context).colorScheme.surface,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                    child: FilledButton(
+                      onPressed:
+                          _busy ||
+                              _loadingChannelSettings ||
+                              _checkingHandle ||
+                              _handleAvailable == false
+                          ? null
+                          : _save,
+                      child: _busy
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(AppStrings.t('common.save')),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          : null,
       body: SafeArea(
         child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1022,29 +1095,37 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                   hintText: AppStrings.t('channel.descriptionHintEdit'),
                 ),
               ),
+              const SizedBox(height: 24),
+              TextFormField(
+                key: const ValueKey('channel-contact-email'),
+                controller: _contactEmailController,
+                enabled: !_busy && _channel.can('channel.edit_profile'),
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: AppStrings.t('channel.contactEmail'),
+                  helperText: AppStrings.t('channel.contactEmailHint'),
+                  prefixIcon: const Icon(Icons.mail_outline_rounded),
+                ),
+              ),
+              const SizedBox(height: 24),
               _socialLinksSection(),
               const SizedBox(height: 24),
 
-              FilledButton(
-                onPressed:
-                    _busy ||
-                        _loadingChannelSettings ||
-                        _checkingHandle ||
-                        _handleAvailable == false
-                    ? null
-                    : _save,
-                child: _busy || _loadingChannelSettings
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : Text(AppStrings.t('common.save')),
-              ),
-
+              if (_channel.can('member.view')) ...[
+                const SizedBox(height: 24),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ChannelMembersScreen(
+                        auth: widget.auth,
+                        channel: _channel,
+                      ),
+                    ),
+                  ),
+                  icon: const Icon(Icons.manage_accounts_outlined),
+                  label: Text(AppStrings.t('channel.members')),
+                ),
+              ],
               if (_channel.permissions.contains('member.invite') ||
                   _channel.isOwner) ...[
                 const SizedBox(height: 32),
@@ -1126,8 +1207,6 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                 _pendingInvitationsSection(),
               ],
 
-              const SizedBox(height: 36),
-              const Divider(),
               const SizedBox(height: 24),
 
               // Danger Zone
@@ -1136,9 +1215,11 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.dangerContainerFor(context),
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.dangerFor(context)),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1166,7 +1247,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                       Text(
                         AppStrings.t('channel.dangerDescription'),
                         style: TextStyle(
-                          color: AppColors.onDangerContainerFor(context),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 13,
                           height: 1.4,
                         ),
@@ -1176,7 +1257,7 @@ class _ChannelSettingsScreenState extends State<ChannelSettingsScreen> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.dangerFor(context),
                           side: BorderSide(color: AppColors.dangerFor(context)),
-                          minimumSize: const Size.fromHeight(44),
+                          minimumSize: const Size(0, 44),
                         ),
                         onPressed: _busy ? null : _confirmDelete,
                         child: Text(AppStrings.t('channel.deleteThis')),

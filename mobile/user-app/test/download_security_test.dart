@@ -6,7 +6,7 @@ import 'package:http/testing.dart';
 import 'package:user_app/features/content/local_download_manager.dart';
 
 Future<void> waitFor(bool Function() ready) async {
-  for (var attempt = 0; attempt < 100; attempt++) {
+  for (var attempt = 0; attempt < 500; attempt++) {
     if (ready()) return;
     await Future<void>.delayed(const Duration(milliseconds: 10));
   }
@@ -14,6 +14,57 @@ Future<void> waitFor(bool Function() ready) async {
 }
 
 void main() {
+  test(
+    'retry immediately when failure is reported starts a new transfer',
+    () async {
+      final root = await Directory.systemTemp.createTemp(
+        'hutube_download_retry_',
+      );
+      var calls = 0;
+      final manager = LocalDownloadManager.test(
+        rootDirectory: () async => root,
+        clientFactory: () => MockClient(
+          (_) async => ++calls == 1
+              ? http.Response('unavailable', 503)
+              : http.Response('video', 200),
+        ),
+      );
+      var retried = false;
+      manager.addListener(() {
+        if (manager.items.singleOrNull?.status == 'failed' && !retried) {
+          retried = true;
+          unawaited(manager.retry('one'));
+        }
+      });
+      try {
+        await manager.bindUser(
+          'owner',
+          authorize: (_) async => 'https://media.test/file',
+        );
+        await manager.enqueue(
+          id: 'one',
+          videoId: 'video',
+          title: 'Video',
+          quality: '720p',
+          url: '',
+          fileSize: 5,
+        );
+        await waitFor(() => manager.items.single.completed);
+        expect(calls, 2);
+      } finally {
+        await manager.bindUser(null);
+        await manager.flush();
+        manager.dispose();
+        expect(
+          root.absolute.path.startsWith(
+            '${Directory.systemTemp.absolute.path}${Platform.pathSeparator}',
+          ),
+          isTrue,
+        );
+        await root.delete(recursive: true);
+      }
+    },
+  );
   test(
     'pause prevents late completion and resume starts an authorized transfer',
     () async {

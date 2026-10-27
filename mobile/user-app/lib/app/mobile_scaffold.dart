@@ -1,3 +1,6 @@
+import '../core/media/picture_in_picture.dart';
+import '../channel/models/channel_models.dart';
+import '../channel/services/channel_service.dart';
 import '../core/widgets/scrollable_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -49,82 +52,96 @@ class MobileScaffold extends StatelessWidget {
     }
   }
 
-  void _showCreateSheet(BuildContext context) {
+  Future<void> _showCreateSheet(BuildContext context) async {
     if (!auth.authenticated) {
       context.go('/auth');
       return;
     }
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) => ScrollableSheet(
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 22),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  AppStrings.t('app.create.title'),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  AppStrings.t('app.create.description'),
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 16),
-                _CreateAction(
-                  customIcon: AppIcons.asset(
-                    AppIcons.upload,
-                    size: 22,
+    final session = auth.sessionGeneration;
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (sheetContext) => ScrollableSheet(
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 22),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    AppStrings.t('app.create.title'),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    AppStrings.t('app.create.description'),
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  _CreateAction(
+                    customIcon: AppIcons.asset(
+                      AppIcons.upload,
+                      size: 22,
+                      color: AppColors.primary,
+                    ),
                     color: AppColors.primary,
+                    title: AppStrings.t('app.create.videoTitle'),
+                    description: AppStrings.t('app.create.videoDescription'),
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      context.push('/creator?upload=true');
+                    },
                   ),
-                  color: AppColors.primary,
-                  title: AppStrings.t('app.create.videoTitle'),
-                  description: AppStrings.t('app.create.videoDescription'),
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    context.push('/creator?upload=true');
-                  },
-                ),
-                _CreateAction(
-                  customIcon: AppIcons.asset(
-                    AppIcons.playlist,
-                    size: 22,
+                  _CreateAction(
+                    customIcon: AppIcons.asset(
+                      AppIcons.playlist,
+                      size: 22,
+                      color: AppColors.violet,
+                    ),
                     color: AppColors.violet,
+                    title: AppStrings.t('app.create.playlistTitle'),
+                    description: AppStrings.t('app.create.playlistDescription'),
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      context.push('/playlists?create=true');
+                    },
                   ),
-                  color: AppColors.violet,
-                  title: AppStrings.t('app.create.playlistTitle'),
-                  description: AppStrings.t('app.create.playlistDescription'),
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    context.push('/playlists?create=true');
-                  },
-                ),
-                _CreateAction(
-                  customIcon: AppIcons.asset(
-                    AppIcons.channel,
-                    size: 22,
-                    color: AppColors.success,
+                  _ChannelCreateAction(
+                    auth: auth,
+                    onOpen: (id) {
+                      Navigator.pop(sheetContext);
+                      if (!context.mounted ||
+                          session != auth.sessionGeneration) {
+                        return;
+                      }
+                      context.push(
+                        id == null ? '/create-channel' : '/channels/$id',
+                      );
+                    },
                   ),
-                  color: AppColors.success,
-                  title: AppStrings.t('app.create.channelTitle'),
-                  description: AppStrings.t('app.create.channelDescription'),
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    context.push('/create-channel');
-                  },
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
-    );
+      );
+    } catch (error) {
+      if (context.mounted && session == auth.sessionGeneration) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error is ApiFailure
+                  ? AppStrings.apiError(error)
+                  : AppStrings.t('common.networkError'),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   void _restoreMinimizedVideo(BuildContext context) {
@@ -140,193 +157,199 @@ class MobileScaffold extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final wide = MediaQuery.sizeOf(context).width >= 720;
-    final isDetail = location.startsWith('/watch/');
-    final hideAppBar =
-        isDetail || location == '/account' || location == '/settings';
-    final scaffold = Scaffold(
-      appBar: hideAppBar
-          ? null
-          : AppBar(
-              leadingWidth: wide ? 56 : 52,
-              leading: Builder(
-                builder: (drawerContext) => IconButton(
-                  tooltip: AppStrings.t('common.menu'),
-                  icon: const Icon(Icons.menu_rounded),
-                  onPressed: () => Scaffold.of(drawerContext).openDrawer(),
+  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
+    valueListenable: AppPictureInPicture.active,
+    builder: (context, systemPip, _) {
+      final wide = MediaQuery.sizeOf(context).width >= 720;
+      final isDetail = location.startsWith('/watch/');
+      final hideAppBar =
+          systemPip ||
+          isDetail ||
+          location == '/account' ||
+          location == '/settings';
+      final scaffold = Scaffold(
+        appBar: hideAppBar
+            ? null
+            : AppBar(
+                leadingWidth: wide ? 56 : 52,
+                leading: Builder(
+                  builder: (drawerContext) => IconButton(
+                    tooltip: AppStrings.t('common.menu'),
+                    icon: const Icon(Icons.menu_rounded),
+                    onPressed: () => Scaffold.of(drawerContext).openDrawer(),
+                  ),
                 ),
-              ),
-              title: HuTubeLogo(
-                size: 25,
-                showWordmark: MediaQuery.sizeOf(context).width >= 360,
-              ),
-              actions: [
-                if (!auth.authenticated && wide)
-                  IconButton(
-                    tooltip: AppStrings.t('common.signIn'),
-                    onPressed: () => context.go('/auth'),
-                    icon: const Icon(Icons.login_rounded),
-                  ),
-                if (!isDetail)
-                  IconButton(
-                    tooltip: AppStrings.t('common.search'),
-                    onPressed: () => context.push('/search'),
-                    icon: AppIcons.asset(
-                      AppIcons.search,
-                      size: 24,
-                      color: Theme.of(context).colorScheme.onSurface,
+                title: HuTubeLogo(
+                  size: 25,
+                  showWordmark: MediaQuery.sizeOf(context).width >= 360,
+                ),
+                actions: [
+                  if (!auth.authenticated && wide)
+                    IconButton(
+                      tooltip: AppStrings.t('common.signIn'),
+                      onPressed: () => context.go('/auth'),
+                      icon: const Icon(Icons.login_rounded),
                     ),
-                  ),
-                if (auth.authenticated)
-                  AnimatedBuilder(
-                    animation: notifications,
-                    builder: (context, _) => IconButton(
-                      tooltip: AppStrings.t('common.notifications'),
-                      onPressed: () => context.push('/notifications'),
-                      icon: Semantics(
-                        label: notifications.unreadCount == 0
-                            ? AppStrings.t('common.notifications')
-                            : '${AppStrings.t('common.notifications')}, ${AppStrings.format('notifications.unreadCount', {'count': AppStrings.number(notifications.unreadCount)})}',
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            AppIcons.asset(
-                              AppIcons.notification,
-                              size: 22,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                            if (notifications.unreadCount > 0)
-                              Positioned(
-                                top: -7,
-                                right: -9,
-                                child: Container(
-                                  constraints: const BoxConstraints(
-                                    minWidth: 17,
-                                  ),
-                                  height: 17,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                  ),
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primaryPink,
-                                    borderRadius: BorderRadius.circular(9),
-                                    border: Border.all(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.surface,
-                                      width: 1.5,
+                  if (!isDetail)
+                    IconButton(
+                      tooltip: AppStrings.t('common.search'),
+                      onPressed: () => context.push('/search'),
+                      icon: AppIcons.asset(
+                        AppIcons.search,
+                        size: 24,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                  if (auth.authenticated)
+                    AnimatedBuilder(
+                      animation: notifications,
+                      builder: (context, _) => IconButton(
+                        tooltip: AppStrings.t('common.notifications'),
+                        onPressed: () => context.push('/notifications'),
+                        icon: Semantics(
+                          label: notifications.unreadCount == 0
+                              ? AppStrings.t('common.notifications')
+                              : '${AppStrings.t('common.notifications')}, ${AppStrings.format('notifications.unreadCount', {'count': AppStrings.number(notifications.unreadCount)})}',
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              AppIcons.asset(
+                                AppIcons.notification,
+                                size: 22,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                              if (notifications.unreadCount > 0)
+                                Positioned(
+                                  top: -7,
+                                  right: -9,
+                                  child: Container(
+                                    constraints: const BoxConstraints(
+                                      minWidth: 17,
                                     ),
-                                  ),
-                                  child: Text(
-                                    notifications.unreadCount > 99
-                                        ? '99+'
-                                        : '${notifications.unreadCount}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w900,
+                                    height: 17,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                    ),
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primaryPink,
+                                      borderRadius: BorderRadius.circular(9),
+                                      border: Border.all(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.surface,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      notifications.unreadCount > 99
+                                          ? '99+'
+                                          : '${notifications.unreadCount}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w900,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-      drawer: isDetail ? null : _Drawer(auth: auth),
-      body: SafeArea(
-        top: false,
-        left: !isDetail,
-        right: !isDetail,
-        bottom: !isDetail,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            child,
-            if (!isDetail) MiniPlayer(session: playback),
-          ],
+                ],
+              ),
+        drawer: isDetail ? null : _Drawer(auth: auth),
+        body: SafeArea(
+          top: false,
+          left: !isDetail,
+          right: !isDetail,
+          bottom: !isDetail && !systemPip,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              child,
+              if (!isDetail) MiniPlayer(session: playback),
+            ],
+          ),
         ),
-      ),
-      bottomNavigationBar: (wide || isDetail)
-          ? null
-          : NavigationBar(
-              selectedIndex: _selectedIndex,
-              onDestinationSelected: (value) => _select(context, value),
-              destinations: [
-                NavigationDestination(
-                  icon: AppIcons.asset(
-                    AppIcons.home,
-                    size: 22,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+        bottomNavigationBar: (systemPip || wide || isDetail)
+            ? null
+            : NavigationBar(
+                selectedIndex: _selectedIndex,
+                onDestinationSelected: (value) => _select(context, value),
+                destinations: [
+                  NavigationDestination(
+                    icon: AppIcons.asset(
+                      AppIcons.home,
+                      size: 22,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    selectedIcon: AppIcons.asset(
+                      AppIcons.home,
+                      size: 22,
+                      color: AppColors.primaryPink,
+                    ),
+                    label: AppStrings.t('nav.home'),
                   ),
-                  selectedIcon: AppIcons.asset(
-                    AppIcons.home,
-                    size: 22,
-                    color: AppColors.primaryPink,
+                  NavigationDestination(
+                    icon: AppIcons.asset(
+                      AppIcons.compass,
+                      size: 22,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    selectedIcon: AppIcons.asset(
+                      AppIcons.compass,
+                      size: 22,
+                      color: AppColors.primaryPink,
+                    ),
+                    label: AppStrings.t('nav.explore'),
                   ),
-                  label: AppStrings.t('nav.home'),
-                ),
-                NavigationDestination(
-                  icon: AppIcons.asset(
-                    AppIcons.compass,
-                    size: 22,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  NavigationDestination(
+                    icon: _CreateNavIcon(),
+                    selectedIcon: _CreateNavIcon(selected: true),
+                    label: AppStrings.t('app.createButton'),
                   ),
-                  selectedIcon: AppIcons.asset(
-                    AppIcons.compass,
-                    size: 22,
-                    color: AppColors.primaryPink,
+                  NavigationDestination(
+                    icon: AppIcons.asset(
+                      AppIcons.myChannel,
+                      size: 22,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    selectedIcon: AppIcons.asset(
+                      AppIcons.myChannel,
+                      size: 22,
+                      color: AppColors.primaryPink,
+                    ),
+                    label: AppStrings.t('nav.subscriptions'),
                   ),
-                  label: AppStrings.t('nav.explore'),
-                ),
-                NavigationDestination(
-                  icon: _CreateNavIcon(),
-                  selectedIcon: _CreateNavIcon(selected: true),
-                  label: AppStrings.t('app.createButton'),
-                ),
-                NavigationDestination(
-                  icon: AppIcons.asset(
-                    AppIcons.myChannel,
-                    size: 22,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  NavigationDestination(
+                    icon: _YouNavIcon(auth: auth, selected: false),
+                    selectedIcon: _YouNavIcon(auth: auth, selected: true),
+                    label: AppStrings.t('app.navYou'),
                   ),
-                  selectedIcon: AppIcons.asset(
-                    AppIcons.myChannel,
-                    size: 22,
-                    color: AppColors.primaryPink,
-                  ),
-                  label: AppStrings.t('nav.subscriptions'),
-                ),
-                NavigationDestination(
-                  icon: _YouNavIcon(auth: auth, selected: false),
-                  selectedIcon: _YouNavIcon(auth: auth, selected: true),
-                  label: AppStrings.t('app.navYou'),
-                ),
-              ],
-            ),
-    );
-    return AnimatedBuilder(
-      animation: playback,
-      builder: (context, _) {
-        final canRestoreMinimizedVideo =
-            !isDetail && playback.minimized && playback.hasVideo;
-        return PopScope(
-          canPop: !canRestoreMinimizedVideo,
-          onPopInvokedWithResult: (didPop, _) {
-            if (!didPop && canRestoreMinimizedVideo) {
-              _restoreMinimizedVideo(context);
-            }
-          },
-          child: scaffold,
-        );
-      },
-    );
-  }
+                ],
+              ),
+      );
+      return AnimatedBuilder(
+        animation: playback,
+        builder: (context, _) {
+          final canRestoreMinimizedVideo =
+              !isDetail && playback.minimized && playback.hasVideo;
+          return PopScope(
+            canPop: !canRestoreMinimizedVideo,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop && canRestoreMinimizedVideo) {
+                _restoreMinimizedVideo(context);
+              }
+            },
+            child: scaffold,
+          );
+        },
+      );
+    },
+  );
 }
 
 class _YouNavIcon extends StatelessWidget {
@@ -650,4 +673,65 @@ class _SectionLabel extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ChannelCreateAction extends StatefulWidget {
+  const _ChannelCreateAction({required this.auth, required this.onOpen});
+  final AuthController auth;
+  final ValueChanged<String?> onOpen;
+  @override
+  State<_ChannelCreateAction> createState() => _ChannelCreateActionState();
+}
+
+class _ChannelCreateActionState extends State<_ChannelCreateAction> {
+  late Future<ChannelDetail?> _channel = ChannelService(
+    widget.auth,
+  ).getMyChannel();
+  @override
+  Widget build(BuildContext context) => FutureBuilder<ChannelDetail?>(
+    future: _channel,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState != ConnectionState.done) {
+        return ListTile(
+          leading: const SizedBox.square(
+            dimension: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          title: Text(AppStrings.t('account.checkingChannel')),
+        );
+      }
+      if (snapshot.hasError) {
+        return ListTile(
+          title: Text(AppStrings.t('channel.loadError')),
+          trailing: IconButton(
+            tooltip: AppStrings.t('common.retry'),
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () => setState(
+              () => _channel = ChannelService(widget.auth).getMyChannel(),
+            ),
+          ),
+        );
+      }
+      final channel = snapshot.data;
+      return _CreateAction(
+        customIcon: AppIcons.asset(
+          AppIcons.channel,
+          size: 22,
+          color: AppColors.success,
+        ),
+        color: AppColors.success,
+        title: AppStrings.t(
+          channel == null
+              ? 'app.create.channelTitle'
+              : 'app.create.existingChannel',
+        ),
+        description: AppStrings.t(
+          channel == null
+              ? 'app.create.channelDescription'
+              : 'app.create.existingChannelHint',
+        ),
+        onTap: () => widget.onOpen(channel?.id),
+      );
+    },
+  );
 }

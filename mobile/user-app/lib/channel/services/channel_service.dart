@@ -27,9 +27,15 @@ class ChannelService {
   }
 
   Future<ChannelDetail> getChannel(String handleOrId) async {
-    final clean = handleOrId.startsWith('@')
-        ? handleOrId.substring(1)
-        : handleOrId;
+    final value = handleOrId.trim();
+    // Channel cards and own-channel navigation can use the stable server ID.
+    if (!value.startsWith('@') &&
+        RegExp(
+          r'^[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$',
+        ).hasMatch(value)) {
+      return getChannelById(value);
+    }
+    final clean = normalizeChannelHandle(value);
     final path = '/channels/handle/${Uri.encodeComponent(clean)}';
     final res = auth.authenticated
         ? await auth.protected('GET', path)
@@ -37,15 +43,18 @@ class ChannelService {
     return ChannelDetail.fromJson(res);
   }
 
-  Future<ChannelDetail> getChannelById(String channelId) async {
+  Future<ChannelDetail> getChannelById(
+    String channelId, {
+    bool refresh = false,
+  }) async {
     final res = auth.authenticated
         ? await auth.protected(
             'GET',
-            '/channels/${Uri.encodeComponent(channelId)}',
+            '/channels/${Uri.encodeComponent(channelId)}${refresh ? '?_refresh=1' : ''}',
           )
         : await auth.api.request(
             'GET',
-            '/channels/${Uri.encodeComponent(channelId)}',
+            '/channels/${Uri.encodeComponent(channelId)}${refresh ? '?_refresh=1' : ''}',
           );
     return ChannelDetail.fromJson(res);
   }
@@ -65,6 +74,7 @@ class ChannelService {
     required String name,
     required String handle,
     String? description,
+    String? contactEmail,
   }) async {
     final clean = handle.startsWith('@') ? handle.substring(1) : handle;
     final res = await auth.protected(
@@ -74,6 +84,7 @@ class ChannelService {
         'name': name.trim(),
         'handle': clean.trim(),
         'description': description?.trim(),
+        if (contactEmail != null) 'contactEmail': contactEmail.trim(),
       },
     );
     return ChannelDetail.fromJson(res);
@@ -85,6 +96,7 @@ class ChannelService {
     String? handle,
     String? description,
     String? settings,
+    String? contactEmail,
   }) async {
     final res = await auth.protected(
       'PATCH',
@@ -95,6 +107,7 @@ class ChannelService {
         'description': description?.trim(),
         // ignore: use_null_aware_elements
         if (settings != null) 'settings': settings,
+        if (contactEmail != null) 'contactEmail': contactEmail.trim(),
       },
     );
     return ChannelDetail.fromJson(res);

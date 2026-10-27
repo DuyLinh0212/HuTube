@@ -103,6 +103,11 @@ void main() {
             });
           }
           final tile = find.widgetWithText(SwitchListTile, title);
+          await tester.scrollUntilVisible(
+            tile,
+            180,
+            scrollable: find.byType(Scrollable).first,
+          );
           final before = tester.widget<SwitchListTile>(tile).value;
           await tester.ensureVisible(tile);
           await tester.pumpAndSettle();
@@ -118,6 +123,11 @@ void main() {
           await tester.pumpWidget(const SizedBox.shrink());
           await tester.pumpWidget(app());
           await tester.pumpAndSettle();
+          await tester.scrollUntilVisible(
+            tile,
+            180,
+            scrollable: find.byType(Scrollable).first,
+          );
           expect(tester.widget<SwitchListTile>(tile).value, !before);
           expect(tester.takeException(), isNull);
         },

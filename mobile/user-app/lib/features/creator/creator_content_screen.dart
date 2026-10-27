@@ -1,5 +1,7 @@
 import '../../core/widgets/confirmation_dialog.dart';
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'video_frame_picker.dart';
 import '../../core/widgets/content_filters.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -136,6 +138,7 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
         description: result.description,
         visibility: result.visibility,
         categoryId: result.categoryId,
+        clearCategory: result.categoryId == null && item.categoryId != null,
         tags: result.tags,
         chapters: result.chapters,
         videoCards: result.videoCards,
@@ -248,6 +251,12 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
               title: Text(AppStrings.t('creator.createThumbnail')),
               onTap: () => Navigator.pop(context, 'generate'),
             ),
+            if (Platform.isAndroid)
+              ListTile(
+                leading: const Icon(Icons.video_library_outlined),
+                title: Text(AppStrings.t('creator.chooseFrame')),
+                onTap: () => Navigator.pop(context, 'frame'),
+              ),
           ],
         ),
       ),
@@ -256,6 +265,21 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
     try {
       if (choice == 'generate') {
         await _service.updateThumbnail(item.id, generate: true);
+      } else if (choice == 'frame') {
+        if (!mounted) return;
+        final image = await Navigator.of(context).push<XFile>(
+          MaterialPageRoute(
+            builder: (_) => VideoFramePicker(auth: widget.auth, video: item),
+          ),
+        );
+        if (image == null) return;
+        try {
+          await _service.updateThumbnail(item.id, image: image);
+        } finally {
+          try {
+            await File(image.path).delete();
+          } catch (_) {}
+        }
       } else {
         final image = await ImagePicker().pickImage(
           source: ImageSource.gallery,
@@ -269,6 +293,8 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
       if (mounted) _show(AppStrings.t('creator.thumbnailUpdated'));
     } on ApiFailure catch (error) {
       if (mounted) _show(AppStrings.apiError(error, fallback: 'common.error'));
+    } catch (_) {
+      if (mounted) _show(AppStrings.t('common.error'));
     }
   }
 
@@ -348,6 +374,7 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
     body: Column(
       children: [
         ContentFilters(
+          compact: true,
           options: const {
             'status': [
               'all',
@@ -367,6 +394,66 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
         Expanded(child: _buildResults()),
       ],
     ),
+  );
+
+  Widget _videoActions(VideoDetail video) => PopupMenuButton<String>(
+    tooltip: AppStrings.t('common.moreOptions'),
+    enabled:
+        widget.channel.can('video.edit') || widget.channel.can('video.delete'),
+    onSelected: (value) {
+      switch (value) {
+        case 'submit':
+          _submit(video);
+        case 'thumbnail':
+          _updateThumbnail(video);
+        case 'publish':
+          _publish(video);
+        case 'retry':
+          _retryProcessing(video);
+        case 'cancel':
+          _cancelUpload(video);
+        case 'delete':
+          _delete(video);
+      }
+    },
+    itemBuilder: (_) => [
+      if (widget.channel.can('video.edit')) ...[
+        if (video.moderationStatus.toLowerCase() != 'approved' &&
+            !video.processingStatus.toLowerCase().contains('upload'))
+          PopupMenuItem(
+            value: 'submit',
+            child: Text(AppStrings.t('creator.submitReview')),
+          ),
+        PopupMenuItem(
+          value: 'thumbnail',
+          child: Text(AppStrings.t('creator.thumbnailTooltip')),
+        ),
+        if (video.moderationStatus.toLowerCase() == 'approved' &&
+            video.visibility.toLowerCase() != 'public')
+          PopupMenuItem(
+            value: 'publish',
+            child: Text(AppStrings.t('creator.publishVideo')),
+          ),
+        if (video.processingStatus.toLowerCase().contains('fail'))
+          PopupMenuItem(
+            value: 'retry',
+            child: Text(AppStrings.t('creator.reprocessVideo')),
+          ),
+        if (video.processingStatus.toLowerCase().contains('upload'))
+          PopupMenuItem(
+            value: 'cancel',
+            child: Text(AppStrings.t('creator.cancelUploadTooltip')),
+          ),
+      ],
+      if (widget.channel.can('video.delete'))
+        PopupMenuItem(
+          value: 'delete',
+          child: Text(
+            AppStrings.t('creator.deleteVideo'),
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ),
+    ],
   );
 
   Widget _buildResults() => _loading
@@ -398,7 +485,7 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
                   ],
                 )
               : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                   itemCount: _items.length + (_items.length < _total ? 1 : 0),
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (_, index) {
@@ -420,11 +507,16 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
                       clipBehavior: Clip.antiAlias,
                       child: Column(
                         children: [
-                          VideoCardTile(video: video, auth: widget.auth),
+                          VideoCardTile(
+                            video: video,
+                            auth: widget.auth,
+                            compact: true,
+                            trailing: const SizedBox.shrink(),
+                          ),
                           Padding(
                             padding: const EdgeInsets.fromLTRB(12, 0, 8, 8),
                             child: Wrap(
-                              spacing: 4,
+                              spacing: 6,
                               runSpacing: 4,
                               crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
@@ -433,65 +525,18 @@ class _CreatorContentScreenState extends State<CreatorContentScreen> {
                                       ? _statusLabel(video.visibility)
                                       : _statusLabel(video.moderationStatus),
                                 ),
-
-                                if (video.moderationStatus.toLowerCase() !=
-                                        'approved' &&
-                                    !video.processingStatus
-                                        .toLowerCase()
-                                        .contains('upload'))
-                                  TextButton(
-                                    onPressed: () => _submit(video),
-                                    child: Text(
-                                      AppStrings.t('creator.submitReview'),
+                                if (widget.channel.can('video.edit'))
+                                  TextButton.icon(
+                                    onPressed: () => _edit(video),
+                                    icon: const Icon(
+                                      Icons.edit_outlined,
+                                      size: 18,
+                                    ),
+                                    label: Text(
+                                      AppStrings.t('creator.editVideo'),
                                     ),
                                   ),
-                                IconButton(
-                                  tooltip: AppStrings.t(
-                                    'creator.thumbnailTooltip',
-                                  ),
-                                  onPressed: () => _updateThumbnail(video),
-                                  icon: const Icon(Icons.image_outlined),
-                                ),
-                                if (video.moderationStatus.toLowerCase() ==
-                                        'approved' &&
-                                    video.visibility.toLowerCase() != 'public')
-                                  IconButton(
-                                    tooltip: AppStrings.t(
-                                      'creator.publishVideo',
-                                    ),
-                                    onPressed: () => _publish(video),
-                                    icon: const Icon(Icons.publish_rounded),
-                                  ),
-                                if (video.processingStatus
-                                    .toLowerCase()
-                                    .contains('fail'))
-                                  IconButton(
-                                    tooltip: AppStrings.t(
-                                      'creator.reprocessVideo',
-                                    ),
-                                    onPressed: () => _retryProcessing(video),
-                                    icon: const Icon(Icons.refresh_rounded),
-                                  ),
-                                if (video.processingStatus
-                                    .toLowerCase()
-                                    .contains('upload'))
-                                  IconButton(
-                                    tooltip: AppStrings.t(
-                                      'creator.cancelUploadTooltip',
-                                    ),
-                                    onPressed: () => _cancelUpload(video),
-                                    icon: const Icon(Icons.cancel_outlined),
-                                  ),
-                                IconButton(
-                                  tooltip: AppStrings.t('creator.editVideo'),
-                                  onPressed: () => _edit(video),
-                                  icon: const Icon(Icons.edit_outlined),
-                                ),
-                                IconButton(
-                                  tooltip: AppStrings.t('creator.deleteVideo'),
-                                  onPressed: () => _delete(video),
-                                  icon: const Icon(Icons.delete_outline),
-                                ),
+                                _videoActions(video),
                               ],
                             ),
                           ),
@@ -836,7 +881,7 @@ class _VideoEditorState extends State<_VideoEditor> {
                   ..._categories.map(
                     (category) => DropdownMenuItem<String?>(
                       value: category.id,
-                      child: Text(category.name),
+                      child: Text(category.displayName),
                     ),
                   ),
                 ],

@@ -51,6 +51,48 @@ class AuthController extends ChangeNotifier {
   String? get accessToken => _accessToken;
   int get sessionGeneration => _generation;
 
+  Future<BinaryPayload> protectedBinary(String path) async {
+    final generation = _generation;
+    final token = _accessToken;
+    try {
+      final data = await api.requestBinary(path, accessToken: token);
+      if (generation != _generation) {
+        throw ApiFailure(
+          401,
+          'SESSION_EXPIRED',
+          AppStrings.t('common.loginAgain'),
+        );
+      }
+      return data;
+    } on ApiFailure catch (error) {
+      if (error.status != 401 || generation != _generation) rethrow;
+      if (token == _accessToken) await refresh();
+      if (generation != _generation) rethrow;
+      try {
+        final data = await api.requestBinary(path, accessToken: _accessToken);
+        if (generation != _generation) {
+          throw ApiFailure(
+            401,
+            'SESSION_EXPIRED',
+            AppStrings.t('common.loginAgain'),
+          );
+        }
+        return data;
+      } on ApiFailure catch (retryError) {
+        if (retryError.status == 401 && generation == _generation) {
+          await clearSession(AppStrings.t('auth.sessionExpired'));
+        }
+        rethrow;
+      }
+    }
+  }
+
+  void updateUserProfile({required String displayName, String? avatarUrl}) {
+    if (user == null) return;
+    user = {...user!, 'displayName': displayName, 'avatarUrl': ?avatarUrl};
+    _changed();
+  }
+
   void _changed() {
     final owner = user?['userId'] as String?;
     unawaited(

@@ -40,6 +40,37 @@ class AppStrings {
 
   static const Map<String, Map<String, String>> _localizedValues = {
     'vi': {
+      'creator.uploadSuspended':
+          'Kênh của bạn đang bị tạm ngưng nên chưa thể đăng video. Bạn có thể xem trạng thái và gửi kháng nghị để được xem xét.',
+      'channel.changeAvatarShort': 'Đổi ảnh',
+      'media.planTitle': 'Tính năng thuộc gói dịch vụ',
+      'media.planRequired':
+          'Để dùng {feature}, bạn cần đăng ký gói dịch vụ có quyền này. Xem các gói để chọn tính năng phù hợp.',
+      'media.viewPlans': 'Xem gói dịch vụ',
+      'media.checkFailed':
+          'Chưa kiểm tra được quyền của gói. Kiểm tra kết nối rồi thử lại.',
+      'media.pipAutomatic':
+          'Tự thu nhỏ video khi bạn về màn hình chính hoặc chuyển sang ứng dụng khác.',
+      'media.pipPlanHint':
+          'Cần gói dịch vụ có PiP và quyền Hình trong hình của thiết bị.',
+      'media.settingsTitle': 'Phát nền & tải xuống',
+      'media.playbackSection': 'Khi rời ứng dụng',
+      'media.premiumHint':
+          'PiP, phát nền và tải video cần gói dịch vụ có quyền tương ứng. Các cài đặt không tự đăng ký hoặc mua gói.',
+      'media.wifiHint': 'Tiết kiệm dữ liệu di động khi tải video.',
+      'media.recommendationsHint': 'Gợi ý video để bạn chọn lưu khi có mạng.',
+      'upload.detailsSection': 'Thông tin video',
+      'upload.optionsSection': 'Ngôn ngữ & tùy chọn',
+      'upload.advancedSection': 'Chương & video liên quan',
+      'upload.otherLanguage': 'Khác',
+
+      'evidence.share': 'Chia sẻ tệp',
+      'evidence.zoom': 'Chạm để phóng to',
+      'evidence.image': 'Ảnh minh chứng',
+      'evidence.pdf': 'Minh chứng PDF',
+      'evidence.file': 'Tệp minh chứng',
+      'evidence.loadFailed': 'Chưa tải được minh chứng',
+
       'parity.blocked': 'Bị chặn',
       'upload.chaptersInvalid':
           'Mốc chương phải tăng dần, nằm trong video và có tiêu đề hợp lệ.',
@@ -225,9 +256,9 @@ class AppStrings {
       'settings.accountSettingsDesc': 'Bảo mật, thông báo và tùy chọn',
       'settings.language': 'Ngôn ngữ',
       'settings.selectLanguage': 'Chọn ngôn ngữ hiển thị',
-      'settings.myLinks': 'Liên kết của tôi',
+      'settings.myLinks': 'Liên kết công khai',
       'settings.noLinksYet':
-          'Chưa có liên kết công khai. Nhấn Chỉnh sửa để thêm liên kết mạng xã hội.',
+          'Thêm website hoặc mạng xã hội để hiển thị trên kênh của bạn.',
       'settings.logoutConfirm':
           'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản này không?',
       'settings.accountSheet.profile': 'Hồ sơ của bạn',
@@ -286,6 +317,50 @@ class AppStrings {
 
       // Edit Profile
       'editProfile.title': 'Chỉnh sửa hồ sơ',
+      'prefs.syncError':
+          'Đã đổi trên thiết bị. Chưa thể đồng bộ cài đặt với tài khoản, vui lòng thử lại khi có mạng.',
+      'creator.chooseFrame': 'Chọn khung hình từ video',
+      'creator.useFrame': 'Dùng khung hình này',
+      'creator.frameTime': 'Thời điểm trong video',
+      'creator.frameError':
+          'Không thể lấy khung hình. Vui lòng thử lại hoặc chọn ảnh từ thư viện.',
+      'account.userId': 'Mã tài khoản',
+      'common.required': 'Vui lòng nhập thông tin này.',
+      'common.forbidden': 'Bạn chưa có quyền thực hiện thao tác này.',
+      'editProfile.publicInfo': 'Thông tin hiển thị',
+      'editProfile.publicInfoHint':
+          'Tên và tiểu sử giúp mọi người nhận ra bạn trên Dalitu.',
+      'editProfile.countryHint':
+          'Khu vực được lưu trong cài đặt tài khoản của bạn.',
+      'form.discardTitle': 'Bỏ thay đổi?',
+      'form.discardMessage':
+          'Bạn có thay đổi chưa được lưu. Bạn muốn rời trang?',
+      'form.discard': 'Bỏ thay đổi',
+      'channel.socialLinks': 'Liên kết công khai',
+      'channel.linksHint':
+          'Các liên kết này xuất hiện trên kênh của bạn. Thêm tối đa 14 liên kết và sắp xếp theo thứ tự bạn muốn.',
+      'channel.linkPlatform': 'Nền tảng',
+      'channel.linkNumber': 'Liên kết {number}',
+      'channel.linkTitleRequired': 'Nhập tên hiển thị cho liên kết.',
+      'channel.moveLinkUp': 'Chuyển liên kết lên',
+      'channel.moveLinkDown': 'Chuyển liên kết xuống',
+      'channel.contactEmail': 'Email liên hệ',
+      'channel.contactEmailHint':
+          'Email công khai dành cho hợp tác và liên hệ.',
+      'channel.contactEmailInvalid': 'Nhập địa chỉ email hợp lệ.',
+      'channel.removeMember': 'Xóa thành viên',
+      'channel.removeMemberMessage': 'Xóa {name} khỏi nhóm quản lý kênh?',
+      'channel.membersEmpty': 'Chưa có thành viên cộng tác.',
+      'search.resultAll': 'Tất cả',
+      'search.resultVideos': 'Video',
+      'search.resultChannels': 'Kênh',
+      'creator.channelStatus': 'Trạng thái kênh',
+      'creator.channelStatusHint': 'Theo dõi cảnh cáo và gửi kháng nghị.',
+      'moderation.attachEvidence': 'Đính kèm ảnh hoặc PDF',
+      'moderation.evidenceLimit': 'JPG, PNG, WEBP hoặc PDF, tối đa 10 MB.',
+      'moderation.evidenceInvalid':
+          'Chọn ảnh JPG, PNG, WEBP hoặc PDF không quá 10 MB.',
+      'moderation.openEvidence': 'Mở / chia sẻ minh chứng',
       'editProfile.displayName': 'Tên hiển thị',
       'editProfile.bio': 'Tiểu sử',
       'editProfile.country': 'Quốc gia',
@@ -486,22 +561,59 @@ class AppStrings {
       'search.dateThisYear': 'Năm nay',
       'search.resetFilter': 'Đặt lại',
       'search.applyFilter': 'Áp dụng bộ lọc',
-      'downloads.title': 'Bản tải xuống',
+      'downloads.title': 'Video tải xuống',
+      'category.daily': 'Đời sống',
+      'category.entertainment': 'Giải trí',
+      'category.football': 'Bóng đá',
+      'category.music': 'Âm nhạc',
+      'category.gaming': 'Trò chơi',
+      'category.technology': 'Công nghệ',
+      'category.education': 'Giáo dục',
+      'category.sports': 'Thể thao',
+      'category.travel': 'Du lịch',
+      'category.news': 'Tin tức',
+      'category.food': 'Ẩm thực',
+      'app.create.existingChannel': 'Kênh của bạn',
+      'app.create.existingChannelHint': 'Xem và quản lý kênh hiện có.',
+      'moderation.formHint':
+          'Trình bày rõ vấn đề để đội ngũ xem xét lại quyết định.',
+      'moderation.contentSection': 'Nội dung cần xem xét',
+      'moderation.detailsSection': 'Nội dung kháng nghị',
+      'moderation.evidenceSection': 'Bằng chứng hỗ trợ',
+      'moderation.evidenceHint':
+          'Thêm hình ảnh hoặc tài liệu giúp làm rõ kháng nghị của bạn.',
+      'moderation.severity.low': 'Mức độ thấp',
+      'moderation.severity.medium': 'Mức độ trung bình',
+      'moderation.severity.high': 'Mức độ cao',
+      'moderation.appealsHeading': 'Kháng nghị của bạn',
+      'moderation.status.active': 'Đang hoạt động',
+      'watch.replyThreadTitle': 'Trả lời',
+      'watch.editHint': 'Chỉnh sửa nội dung bình luận của bạn.',
+      'watch.replyingTo': 'Đang trả lời {name}',
+
+      'uploadTray.uploading': 'Đang tải video lên',
+      'uploadTray.processing': 'Đang xử lý video',
+      'uploadTray.processingHint':
+          'Đã truyền xong file. Bạn có thể tiếp tục dùng app.',
+      'uploadTray.connecting': 'Đang kết nối…',
       'downloads.videoFallback': 'Video',
       'downloads.empty': 'Chưa có video tải xuống.',
       'downloads.queued': 'Đang chờ',
       'downloads.downloading': 'Đang tải {percent}%',
       'downloads.completed': 'Đã lưu trên thiết bị',
+      'downloads.savedOffline': 'Đã tải xuống',
       'downloads.paused': 'Đã tạm dừng',
       'downloads.waitingWifi': 'Đang chờ Wi-Fi',
       'downloads.waitingNetwork': 'Đang chờ kết nối mạng',
       'downloads.wifiPolicy':
           'Chỉ tải qua Wi-Fi. Khi đổi sang dữ liệu di động, tải sẽ tạm chờ và tự tiếp tục khi có Wi-Fi.',
-      'downloads.suggestedTitle': 'Gợi ý để xem offline',
+      'downloads.suggestedTitle': 'Đề xuất cho bạn',
       'downloads.planRequired':
           'Gói hiện tại chưa có quyền tải video. Chọn gói có hỗ trợ tải xuống để sử dụng tính năng này.',
       'downloads.qualityDenied':
           'Gói hiện tại chưa hỗ trợ chất lượng này. Hãy chọn chất lượng thấp hơn.',
+      'downloads.notReady':
+          'Video chưa có bản tải xuống phù hợp. Vui lòng thử lại sau.',
       'downloads.suggestedDescription':
           'Chọn video muốn lưu để xem khi không có mạng.',
       'downloads.noSuggestions': 'Chưa có video mới để đề xuất tải.',
@@ -516,7 +628,7 @@ class AppStrings {
           'Nguồn video không hợp lệ. Máy chủ cần trả về URL HTTP(S).',
       'watch.playerError': 'Không thể phát nguồn video này.',
       'watch.pipUnsupported':
-          'Thiết bị hiện không hỗ trợ PiP cho nguồn video này.',
+          'Không thể mở PiP. Hãy kiểm tra thiết bị có hỗ trợ và Dalitu đã được cấp quyền Hình trong hình.',
       'watch.loginInteract': 'Đăng nhập để tương tác với video.',
       'watch.loginRate': 'Đăng nhập để đánh giá video.',
       'watch.ratingHint': 'Chọn số sao thể hiện cảm nhận của bạn về video.',
@@ -757,8 +869,21 @@ class AppStrings {
 
       // Channel and collaboration
       'channel.title': 'Kênh',
+      'channel.loadError': 'Không thể tải thông tin kênh. Vui lòng thử lại.',
+      'channel.suspendedTitle': 'Kênh đang bị tạm ngưng',
+      'channel.inactiveTitle': 'Kênh hiện không hoạt động',
+      'channel.contentUnavailable':
+          'Nội dung của kênh tạm thời không khả dụng.',
+      'channel.suspensionReason': 'Lý do: {reason}',
+      'channel.suspensionReasonMissing':
+          'Chưa có lý do tạm ngưng được cung cấp.',
+      'channel.statusAndAppeal': 'Xem trạng thái & kháng nghị',
+      'channel.videosLoadError': 'Chưa tải được video của kênh.',
+      'channel.playlistsLoadError': 'Chưa tải được danh sách phát của kênh.',
+      'channel.subscriptionLoadError': 'Chưa tải được trạng thái đăng ký kênh.',
       'channel.retry': 'Thử lại',
       'channel.copied': 'Đã sao chép liên kết kênh vào bộ nhớ tạm',
+      'channel.yourChannel': 'Kênh của bạn',
       'channel.manage': 'Quản lý kênh và Cài đặt',
       'channel.view': 'Xem kênh',
       'channel.subscribe': 'Đăng ký',
@@ -944,11 +1069,10 @@ class AppStrings {
       'creator.commentsDescription': 'Quản lý phản hồi trên video của bạn.',
       'creator.settingsDescription': 'Tên, mô tả, ảnh đại diện và ảnh bìa.',
       'creator.invitationsDescription': 'Mời và phản hồi lời mời thành viên.',
-      'creator.subtitlesDescription':
-          'Trạng thái phụ đề theo video; tính năng biên soạn đang được hoàn thiện.',
+      'creator.subtitlesDescription': 'Xem trạng thái phụ đề của video.',
       'creator.createChannel': 'Tạo kênh',
       'creator.manageDescription':
-          'Quản lý kênh {name} bằng dữ liệu thật từ Dalitu.',
+          'Quản lý nội dung và theo dõi sự phát triển của {name}.',
       'creator.upload': 'Tải video lên',
       'creator.content': 'Nội dung kênh',
       'creator.comments': 'Bình luận',
@@ -1254,7 +1378,7 @@ class AppStrings {
           'Khám phá và theo dõi kênh để xem video mới ở đây.',
       'subscriptions.exploreVideos': 'Khám phá video',
       'library.subtitle': 'Những video bạn muốn xem lại hoặc đã đánh giá.',
-      'library.playlists': 'Playlist',
+      'library.playlists': 'Danh sách phát',
       'library.historyDescription': 'Video bạn đã xem sẽ được lưu tại đây.',
       'library.likedDescription':
           'Hãy thả tim video để tìm lại chúng nhanh hơn.',
@@ -1262,7 +1386,7 @@ class AppStrings {
       'playlists.chooseHint':
           'Chọn danh sách để lưu video hoặc tạo danh sách mới.',
       'playlists.videoAlreadySaved': 'Video đã có trong danh sách phát này.',
-      'playlists.title': 'Playlist của bạn',
+      'playlists.title': 'Danh sách phát của bạn',
       'playlists.subtitle': 'Lưu và sắp xếp video để xem lại bất cứ lúc nào.',
       'playlists.create': 'Tạo playlist',
       'playlists.createFirst':
@@ -1319,7 +1443,7 @@ class AppStrings {
       'app.create.description': 'Chọn cách bạn muốn bắt đầu trên Dalitu.',
       'app.create.videoTitle': 'Đăng video',
       'app.create.videoDescription': 'Chia sẻ video mới với cộng đồng.',
-      'app.create.playlistTitle': 'Tạo playlist',
+      'app.create.playlistTitle': 'Tạo danh sách phát',
       'app.create.playlistDescription':
           'Gom video vào bộ sưu tập riêng của bạn.',
       'app.create.channelTitle': 'Tạo kênh',
@@ -1415,13 +1539,12 @@ class AppStrings {
       'creator.thumbnailTypes': 'Ảnh thu nhỏ chỉ hỗ trợ JPG, PNG hoặc WEBP.',
       'creator.thumbnailSize': 'Kích thước ảnh thu nhỏ tối đa là {size}MB.',
       'upload.subtitle': 'Chuẩn bị video, thêm thông tin và gửi lên Dalitu.',
-      'downloads.removeAllTitle': 'Xóa tất cả yêu cầu tải?',
+      'downloads.removeAllTitle': 'Xóa tất cả video tải xuống?',
       'downloads.removeAllDescription':
-          'Các yêu cầu tải khỏi tài khoản sẽ bị xóa.',
+          'Video đã lưu trên thiết bị và các bản tải trong tài khoản sẽ bị xóa.',
       'downloads.description':
           'Video đã tải sẽ được lưu trên thiết bị để xem khi không có mạng.',
-      'downloads.subtitle':
-          'Theo dõi yêu cầu tải và video đã lưu trên thiết bị.',
+      'downloads.subtitle': 'Video của bạn, sẵn sàng để xem offline.',
       'downloads.clearAll': 'Xóa tất cả',
       'downloads.requests': 'Yêu cầu tải xuống',
       'downloads.localVideos': 'Video trên thiết bị',
@@ -1521,6 +1644,38 @@ class AppStrings {
     },
 
     'en': {
+      'creator.uploadSuspended':
+          'Your channel is suspended, so you cannot upload videos. View the channel status and submit an appeal for review.',
+      'channel.changeAvatarShort': 'Change photo',
+      'media.planTitle': 'Plan feature',
+      'media.planRequired':
+          'To use {feature}, you need a service plan that includes this feature. View plans to find the right features for you.',
+      'media.viewPlans': 'View plans',
+      'media.checkFailed':
+          'Could not check your plan. Check your connection and try again.',
+      'media.pipAutomatic':
+          'Automatically shrink the video when you go Home or switch to another app.',
+      'media.pipPlanHint':
+          'Requires a plan with PiP and device picture-in-picture permission.',
+      'media.settingsTitle': 'Background & downloads',
+      'media.playbackSection': 'When leaving the app',
+      'media.premiumHint':
+          'PiP, background playback and video downloads require a plan with the corresponding feature. Changing preferences does not purchase a plan.',
+      'media.wifiHint': 'Save mobile data when downloading videos.',
+      'media.recommendationsHint':
+          'Suggest videos you can choose to save while online.',
+      'upload.detailsSection': 'Video details',
+      'upload.optionsSection': 'Language & preferences',
+      'upload.advancedSection': 'Chapters & related videos',
+      'upload.otherLanguage': 'Other',
+
+      'evidence.share': 'Share file',
+      'evidence.zoom': 'Tap to zoom',
+      'evidence.image': 'Evidence image',
+      'evidence.pdf': 'PDF evidence',
+      'evidence.file': 'Evidence file',
+      'evidence.loadFailed': 'Could not load evidence',
+
       'parity.blocked': 'Blocked',
       'upload.chaptersInvalid':
           'Chapters must have a title and increasing timestamps within the video.',
@@ -1706,9 +1861,9 @@ class AppStrings {
       'settings.accountSettingsDesc': 'Security, notifications and options',
       'settings.language': 'Language',
       'settings.selectLanguage': 'Choose display language',
-      'settings.myLinks': 'My links',
+      'settings.myLinks': 'Public links',
       'settings.noLinksYet':
-          'No public links yet. Tap Edit to add social links.',
+          'Add a website or social links to display on your channel.',
       'settings.logoutConfirm':
           'Are you sure you want to log out of this account?',
       'settings.accountSheet.profile': 'Your profile',
@@ -1766,6 +1921,48 @@ class AppStrings {
 
       // Edit Profile
       'editProfile.title': 'Edit Profile',
+      'prefs.syncError':
+          'Changed on this device. Account settings could not sync; try again when connected.',
+      'creator.chooseFrame': 'Choose a video frame',
+      'creator.useFrame': 'Use this frame',
+      'creator.frameTime': 'Time in video',
+      'creator.frameError':
+          'Could not extract this frame. Try again or choose an image from your library.',
+      'account.userId': 'Account ID',
+      'common.required': 'Please fill in this field.',
+      'common.forbidden': 'You do not have permission to perform this action.',
+      'editProfile.publicInfo': 'Public information',
+      'editProfile.publicInfoHint':
+          'Your name and bio help people recognize you on Dalitu.',
+      'editProfile.countryHint':
+          'Your region is saved in your account settings.',
+      'form.discardTitle': 'Discard changes?',
+      'form.discardMessage': 'You have unsaved changes. Do you want to leave?',
+      'form.discard': 'Discard changes',
+      'channel.socialLinks': 'Public links',
+      'channel.linksHint':
+          'These links appear on your channel. Add up to 14 links and arrange them in your preferred order.',
+      'channel.linkPlatform': 'Platform',
+      'channel.linkNumber': 'Link {number}',
+      'channel.linkTitleRequired': 'Enter a display name for this link.',
+      'channel.moveLinkUp': 'Move link up',
+      'channel.moveLinkDown': 'Move link down',
+      'channel.contactEmail': 'Contact email',
+      'channel.contactEmailHint': 'A public email for business inquiries.',
+      'channel.contactEmailInvalid': 'Enter a valid email address.',
+      'channel.removeMember': 'Remove member',
+      'channel.removeMemberMessage': 'Remove {name} from this channel team?',
+      'channel.membersEmpty': 'No collaborators yet.',
+      'search.resultAll': 'All',
+      'search.resultVideos': 'Videos',
+      'search.resultChannels': 'Channels',
+      'creator.channelStatus': 'Channel status',
+      'creator.channelStatusHint': 'Review warnings and submit appeals.',
+      'moderation.attachEvidence': 'Attach an image or PDF',
+      'moderation.evidenceLimit': 'JPG, PNG, WEBP or PDF, up to 10 MB.',
+      'moderation.evidenceInvalid':
+          'Choose a JPG, PNG, WEBP image or PDF up to 10 MB.',
+      'moderation.openEvidence': 'Open / share evidence',
       'editProfile.displayName': 'Display Name',
       'editProfile.bio': 'Bio',
       'editProfile.country': 'Country',
@@ -1972,11 +2169,46 @@ class AppStrings {
       'search.resetFilter': 'Reset',
       'search.applyFilter': 'Apply filters',
       'downloads.title': 'Downloads',
+      'category.daily': 'Daily',
+      'category.entertainment': 'Entertainment',
+      'category.football': 'Football',
+      'category.music': 'Music',
+      'category.gaming': 'Gaming',
+      'category.technology': 'Technology',
+      'category.education': 'Education',
+      'category.sports': 'Sports',
+      'category.travel': 'Travel',
+      'category.news': 'News',
+      'category.food': 'Food',
+      'app.create.existingChannel': 'Your channel',
+      'app.create.existingChannelHint':
+          'View and manage your existing channel.',
+      'moderation.formHint':
+          'Explain the issue so our team can review the decision.',
+      'moderation.contentSection': 'Content to review',
+      'moderation.detailsSection': 'Appeal details',
+      'moderation.evidenceSection': 'Supporting evidence',
+      'moderation.evidenceHint':
+          'Add an image or document to support your appeal.',
+      'moderation.severity.low': 'Low severity',
+      'moderation.severity.medium': 'Medium severity',
+      'moderation.severity.high': 'High severity',
+      'moderation.appealsHeading': 'Your appeals',
+      'moderation.status.active': 'Active',
+      'watch.replyThreadTitle': 'Replies',
+      'watch.editHint': 'Update your comment.',
+      'watch.replyingTo': 'Replying to {name}',
+
+      'uploadTray.uploading': 'Uploading video',
+      'uploadTray.processing': 'Processing video',
+      'uploadTray.processingHint': 'File sent. You can keep using the app.',
+      'uploadTray.connecting': 'Connecting…',
       'downloads.videoFallback': 'Video',
       'downloads.empty': 'No downloaded videos yet.',
       'downloads.queued': 'Queued',
       'downloads.downloading': 'Downloading {percent}%',
       'downloads.completed': 'Saved on this device',
+      'downloads.savedOffline': 'Downloaded',
       'downloads.paused': 'Paused',
       'downloads.waitingWifi': 'Waiting for Wi-Fi',
       'downloads.waitingNetwork': 'Waiting for a connection',
@@ -1987,6 +2219,8 @@ class AppStrings {
           'Your plan does not include video downloads. Choose a plan with downloads to use this feature.',
       'downloads.qualityDenied':
           'Your plan does not support this quality. Choose a lower quality.',
+      'downloads.notReady':
+          'No suitable download is available for this video yet. Please try again later.',
       'downloads.suggestedDescription':
           'Choose videos to save and watch without a connection.',
       'downloads.noSuggestions': 'No new download suggestions yet.',
@@ -2248,8 +2482,21 @@ class AppStrings {
 
       // Channel and collaboration
       'channel.title': 'Channel',
+      'channel.loadError': 'Unable to load this channel. Please try again.',
+      'channel.suspendedTitle': 'This channel is suspended',
+      'channel.inactiveTitle': 'This channel is currently inactive',
+      'channel.contentUnavailable':
+          'This channel’s content is temporarily unavailable.',
+      'channel.suspensionReason': 'Reason: {reason}',
+      'channel.suspensionReasonMissing':
+          'No suspension reason has been provided.',
+      'channel.statusAndAppeal': 'View status & appeals',
+      'channel.videosLoadError': 'Unable to load channel videos.',
+      'channel.playlistsLoadError': 'Unable to load channel playlists.',
+      'channel.subscriptionLoadError': 'Unable to load subscription status.',
       'channel.retry': 'Retry',
       'channel.copied': 'Channel link copied to the clipboard',
+      'channel.yourChannel': 'Your channel',
       'channel.manage': 'Manage channel and settings',
       'channel.view': 'View channel',
       'channel.subscribe': 'Subscribe',
@@ -2437,10 +2684,10 @@ class AppStrings {
       'creator.settingsDescription': 'Name, description, avatar and banner.',
       'creator.invitationsDescription':
           'Invite and respond to member invitations.',
-      'creator.subtitlesDescription':
-          'Subtitle status by video; authoring is still being completed.',
+      'creator.subtitlesDescription': 'View subtitle status for your videos.',
       'creator.createChannel': 'Create a channel',
-      'creator.manageDescription': 'Manage {name} with live Dalitu data.',
+      'creator.manageDescription':
+          'Manage content and track the growth of {name}.',
       'creator.upload': 'Upload video',
       'creator.content': 'Channel content',
       'creator.comments': 'Comments',
@@ -2913,13 +3160,12 @@ class AppStrings {
       'creator.thumbnailSize': 'Thumbnails can be up to {size} MB.',
       'upload.subtitle':
           'Prepare your video, add details, and upload it to Dalitu.',
-      'downloads.removeAllTitle': 'Remove all download requests?',
+      'downloads.removeAllTitle': 'Remove all downloads?',
       'downloads.removeAllDescription':
-          'The download requests will be removed from your account.',
+          'Saved videos on this device and download records in your account will be removed.',
       'downloads.description':
           'Downloaded videos are stored on this device for offline viewing.',
-      'downloads.subtitle':
-          'Track download requests and videos saved on this device.',
+      'downloads.subtitle': 'Your videos, ready to watch offline.',
       'downloads.clearAll': 'Remove all',
       'downloads.requests': 'Download requests',
       'downloads.localVideos': 'On this device',
@@ -3098,6 +3344,44 @@ class AppStrings {
     return date(value);
   }
 
+  static String categoryLabel(String name, [String slug = '']) {
+    final value = (slug.isEmpty ? name : slug).trim().toLowerCase().replaceAll(
+      '_',
+      '-',
+    );
+    const keys = {
+      'daily': 'daily',
+      'đời sống': 'daily',
+      'doi-song': 'daily',
+      'entertainment': 'entertainment',
+      'giải trí': 'entertainment',
+      'giai-tri': 'entertainment',
+      'football': 'football',
+      'bóng đá': 'football',
+      'bong-da': 'football',
+      'music': 'music',
+      'âm nhạc': 'music',
+      'am-nhac': 'music',
+      'gaming': 'gaming',
+      'game': 'gaming',
+      'games': 'gaming',
+      'technology': 'technology',
+      'tech': 'technology',
+      'cong-nghe': 'technology',
+      'education': 'education',
+      'giao-duc': 'education',
+      'sports': 'sports',
+      'travel': 'travel',
+      'du-lich': 'travel',
+      'news': 'news',
+      'tin-tuc': 'news',
+      'food': 'food',
+      'am-thuc': 'food',
+    };
+    final key = keys[value] ?? keys[name.trim().toLowerCase()];
+    return key == null ? name : t('category.$key');
+  }
+
   static String apiError(
     LocalizedApiFailure error, {
     String fallback = 'common.error',
@@ -3127,7 +3411,9 @@ class AppStrings {
       'USERNAME_ALREADY_EXISTS': 'auth.usernameTaken',
       'EMAIL_DELIVERY_UNAVAILABLE': 'auth.emailDeliveryUnavailable',
       'DOWNLOAD_NOT_INCLUDED': 'downloads.planRequired',
+      'CHANNEL_SUSPENDED': 'creator.uploadSuspended',
       'DOWNLOAD_QUALITY_DENIED': 'downloads.qualityDenied',
+      'DOWNLOAD_NOT_READY': 'downloads.notReady',
       'INVALID_OR_EXPIRED_TOKEN': 'auth.invalidVerificationLink',
       'VALIDATION_ERROR': 'common.validationError',
     };

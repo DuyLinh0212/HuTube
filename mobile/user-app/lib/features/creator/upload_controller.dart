@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../auth.dart';
 import '../../core/network/upload_control.dart';
 import '../../core/localization/app_strings.dart';
+import '../../core/media/picture_in_picture.dart';
 import '../content/content_models.dart';
 import '../playlists/playlist_service.dart';
 
@@ -62,8 +62,7 @@ class UploadController extends ChangeNotifier {
     sent = 0;
     total = 0;
     error = null;
-    _key =
-        '${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
+    _key = newUploadId();
     _session = auth.sessionGeneration;
     _task = task;
     _onSaved = onSaved;
@@ -208,77 +207,218 @@ class UploadTray extends StatelessWidget {
   final UploadController controller;
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: controller,
+    listenable: Listenable.merge([controller, AppPictureInPicture.active]),
     builder: (context, _) {
       final c = controller;
-      if (!c.visible) return const SizedBox.shrink();
-      final key = switch (c.phase) {
-        UploadPhase.processing => 'processingUpload',
-        UploadPhase.completed => 'uploadDone',
-        UploadPhase.partial => 'playlistPartial',
-        UploadPhase.cancelled => 'cancelled',
-        _ => 'uploadFailed',
-      };
-      return Material(
-        elevation: 8,
-        color: Theme.of(context).colorScheme.surfaceContainer,
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.cloud_upload_outlined),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        c.fileName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (c.busy)
-                      IconButton(
-                        tooltip: AppStrings.t('parity.cancel'),
-                        onPressed: c.cancel,
-                        icon: const Icon(Icons.cancel_outlined),
-                      )
-                    else ...[
-                      if (c.phase != UploadPhase.completed)
-                        TextButton(
-                          onPressed: c.retry,
-                          child: Text(AppStrings.t('parity.retry')),
+      if (!c.visible || AppPictureInPicture.active.value) {
+        return const SizedBox.shrink();
+      }
+      final colors = Theme.of(context).colorScheme;
+      final failed = c.phase == UploadPhase.failed;
+      final done = c.phase == UploadPhase.completed;
+      final accent = failed
+          ? colors.error
+          : done
+          ? const Color(0xFF10B981)
+          : colors.primary;
+      final title = AppStrings.t(switch (c.phase) {
+        UploadPhase.uploading => 'uploadTray.uploading',
+        UploadPhase.processing => 'uploadTray.processing',
+        UploadPhase.completed => 'parity.uploadDone',
+        UploadPhase.partial => 'parity.playlistPartial',
+        UploadPhase.cancelled => 'parity.cancelled',
+        _ => 'parity.uploadFailed',
+      });
+      final statusIcon = failed
+          ? Icons.error_outline_rounded
+          : done
+          ? Icons.check_rounded
+          : c.phase == UploadPhase.cancelled
+          ? Icons.pause_rounded
+          : c.phase == UploadPhase.partial
+          ? Icons.playlist_add_check_rounded
+          : Icons.arrow_upward_rounded;
+      return SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+          child: Align(
+            heightFactor: 1,
+            alignment: Alignment.bottomCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Material(
+                key: const ValueKey('upload-progress-card'),
+                elevation: 1,
+                shadowColor: colors.shadow.withValues(alpha: .08),
+                color: colors.surfaceContainerLow,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: colors.outlineVariant.withValues(alpha: .6),
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: SizedBox(
+                          width: 38,
+                          height: 38,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: accent.withValues(alpha: .1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: SizedBox.expand(
+                                  child: Icon(
+                                    statusIcon,
+                                    size: 20,
+                                    color: accent,
+                                  ),
+                                ),
+                              ),
+                              if (c.busy)
+                                SizedBox.expand(
+                                  child: CircularProgressIndicator(
+                                    value: c.phase == UploadPhase.uploading
+                                        ? c.progress
+                                        : null,
+                                    strokeWidth: 2.5,
+                                    color: accent,
+                                    backgroundColor: accent.withValues(
+                                      alpha: .1,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Semantics(
+                              liveRegion: true,
+                              child: Text(
+                                title,
+                                style: Theme.of(context).textTheme.labelMedium
+                                    ?.copyWith(
+                                      color: accent,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              c.fileName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            if (c.phase == UploadPhase.uploading) ...[
+                              const SizedBox(height: 8),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: c.progress,
+                                  minHeight: 4,
+                                  color: accent,
+                                  backgroundColor: accent.withValues(
+                                    alpha: .12,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                c.total > 0
+                                    ? '${((c.progress ?? 0) * 100).round()}% · ${_bytes(c.sent)} / ${_bytes(c.total)}'
+                                    : AppStrings.t('uploadTray.connecting'),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: colors.onSurfaceVariant),
+                              ),
+                            ],
+                            if (c.phase == UploadPhase.processing) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                AppStrings.t('uploadTray.processingHint'),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: colors.onSurfaceVariant),
+                              ),
+                            ],
+                            if (c.error != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                c.error!,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: colors.onSurfaceVariant,
+                                      height: 1.4,
+                                    ),
+                              ),
+                            ],
+                            if (!c.busy && !done)
+                              TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  minimumSize: const Size(48, 44),
+                                  alignment: Alignment.centerLeft,
+                                ),
+                                onPressed: c.retry,
+                                icon: const Icon(
+                                  Icons.refresh_rounded,
+                                  size: 18,
+                                ),
+                                label: Text(AppStrings.t('parity.retry')),
+                              ),
+                          ],
+                        ),
+                      ),
                       IconButton(
-                        tooltip: AppStrings.t('parity.close'),
-                        onPressed: c.dismiss,
-                        icon: const Icon(Icons.close),
+                        tooltip: AppStrings.t(
+                          c.busy ? 'parity.cancel' : 'parity.close',
+                        ),
+                        onPressed: c.busy ? c.cancel : c.dismiss,
+                        icon: Icon(
+                          c.busy
+                              ? Icons.stop_circle_outlined
+                              : Icons.close_rounded,
+                          size: 22,
+                          color: colors.onSurfaceVariant,
+                        ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
-                if (c.phase == UploadPhase.uploading) ...[
-                  LinearProgressIndicator(value: c.progress),
-                  Text(
-                    '${((c.progress ?? 0) * 100).round()}% · ${c.sent} / ${c.total} bytes',
-                  ),
-                ] else ...[
-                  if (c.phase == UploadPhase.processing)
-                    const LinearProgressIndicator(),
-                  Text(
-                    c.error ?? AppStrings.t('parity.$key'),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
+              ),
             ),
           ),
         ),
       );
     },
   );
+
+  static String _bytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
 }

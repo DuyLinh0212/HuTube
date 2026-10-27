@@ -14,6 +14,12 @@ import 'package:user_app/features/content/download_preferences.dart';
 import 'package:user_app/features/content/local_download_manager.dart';
 import 'auth_test.dart' show MemoryStore, jsonResponse, session;
 import 'download_security_test.dart' show waitFor;
+import 'package:user_app/features/content/download_actions.dart';
+import 'package:flutter/material.dart';
+import 'package:user_app/core/localization/app_strings.dart';
+import 'package:user_app/core/theme/app_theme.dart';
+import 'package:user_app/features/content/playback_session.dart';
+import 'package:user_app/features/content/watch_screen.dart';
 
 class TestConditions extends DeviceConditions {
   @override
@@ -231,6 +237,140 @@ void main() {
       auth.dispose();
       client.close();
       await root.delete(recursive: true);
+    }
+  });
+
+  group('download action availability', () {
+    test(
+      'download actions follow every server status and deny revoked requests',
+      () {
+        expect(remoteDownloadActions('ready'), [
+          'download',
+          'cancel',
+          'delete',
+        ]);
+        expect(remoteDownloadActions('pending'), ['pause', 'cancel', 'delete']);
+        expect(remoteDownloadActions('processing'), [
+          'pause',
+          'cancel',
+          'delete',
+        ]);
+        expect(remoteDownloadActions('cancelled'), [
+          'resume',
+          'retry',
+          'delete',
+        ]);
+        expect(remoteDownloadActions('failed'), ['retry', 'cancel', 'delete']);
+        expect(remoteDownloadActions('revoked'), ['delete']);
+        expect(remoteDownloadActions('unrecognized'), ['delete']);
+      },
+    );
+  });
+
+  group('watch download flow', () {
+    for (final scenario in [
+      'empty',
+      'plan-denied',
+      'select-quality',
+      'session-changed',
+      'session-changed-in-sheet',
+    ]) {
+      testWidgets('watch download: $scenario', (tester) async {
+        FlutterSecureStorage.setMockInitialValues({});
+        ApiClient.invalidateReadCache();
+        final pending = Completer<http.Response>();
+        final qualities = <String>[];
+        final options = http.Response(
+          jsonEncode([
+            {'quality': '480p', 'width': 854, 'height': 480},
+            {'quality': '720p', 'width': 1280, 'height': 720},
+          ]),
+          200,
+        );
+        var optionsRequested = false;
+        final client = MockClient((r) async {
+          if (r.url.path.endsWith('/videos/video')) {
+            return jsonResponse({
+              'videoId': 'video',
+              'title': 'Download test',
+              'channelId': 'channel',
+            });
+          }
+          if (r.url.path.endsWith('/download-options')) {
+            optionsRequested = true;
+            return switch (scenario) {
+              'empty' => http.Response('[]', 200),
+              'plan-denied' => jsonResponse({
+                'code': 'DOWNLOAD_NOT_INCLUDED',
+              }, 403),
+              'session-changed' => pending.future,
+              _ => options,
+            };
+          }
+          if (r.method == 'POST' && r.url.path.endsWith('/downloads')) {
+            qualities.add(jsonDecode(r.body)['quality'] as String);
+            return jsonResponse({'code': 'DOWNLOAD_QUALITY_DENIED'}, 403);
+          }
+          return jsonResponse({'items': []});
+        });
+        final auth = AuthController(ApiClient(client: client), MemoryStore())
+          ..user = {'userId': 'viewer'};
+        final playback = PlaybackSession()
+          ..videoId = 'video'
+          ..ready = true;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.darkTheme,
+            home: WatchScreen(auth: auth, playback: playback, videoId: 'video'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final button = find.widgetWithText(
+          ActionChip,
+          AppStrings.t('watch.downloadAction'),
+        );
+        await tester.ensureVisible(button);
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+        expect(optionsRequested, isTrue);
+        if (scenario == 'session-changed') {
+          await auth.clearSession();
+          pending.complete(options);
+          await tester.pumpAndSettle();
+          expect(find.byType(BottomSheet), findsNothing);
+          expect(qualities, isEmpty);
+        } else if (scenario == 'session-changed-in-sheet') {
+          await auth.clearSession();
+          await tester.tap(find.text('720p'));
+          await tester.pumpAndSettle();
+          expect(qualities, isEmpty);
+        } else if (scenario == 'select-quality') {
+          expect(find.text('720p'), findsOneWidget);
+          await tester.tap(find.text('720p'));
+          await tester.pumpAndSettle();
+          expect(qualities, ['720p']);
+          expect(
+            find.text(AppStrings.t('downloads.qualityDenied')),
+            findsOneWidget,
+          );
+        } else {
+          expect(find.byType(BottomSheet), findsNothing);
+          expect(
+            find.text(
+              AppStrings.t(
+                scenario == 'empty' ? 'downloads.notReady' : 'media.planTitle',
+              ),
+            ),
+            findsOneWidget,
+          );
+          expect(qualities, isEmpty);
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        playback.dispose();
+        auth.dispose();
+        client.close();
+      });
     }
   });
 }

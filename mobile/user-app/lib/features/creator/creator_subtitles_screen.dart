@@ -43,8 +43,9 @@ class _CreatorSubtitlesScreenState extends State<CreatorSubtitlesScreen> {
 
     try {
       final service = CreatorService(widget.auth);
-      final result = await loadAllPages(
-        (page) => service.managedVideos(widget.channel.id, page: page),
+      final result = await service.videoMetrics(
+        widget.channel.id,
+        includeStats: false,
       );
       if (mounted) {
         setState(() {

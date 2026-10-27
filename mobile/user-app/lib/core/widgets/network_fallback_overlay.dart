@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../localization/app_strings.dart';
 import '../network/api_client.dart';
 import '../network/network_status.dart';
+import '../media/picture_in_picture.dart';
 
 class NetworkFallbackOverlay extends StatelessWidget {
   const NetworkFallbackOverlay({
@@ -18,12 +19,16 @@ class NetworkFallbackOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: NetworkStatus.instance,
+    animation: Listenable.merge([
+      NetworkStatus.instance,
+      AppPictureInPicture.active,
+    ]),
     builder: (context, _) => Stack(
       fit: StackFit.expand,
       children: [
         child,
-        if (NetworkStatus.instance.showFallback)
+        if (NetworkStatus.instance.showFallback &&
+            !AppPictureInPicture.active.value)
           Positioned(
             top: MediaQuery.paddingOf(context).top + 8,
             left: 12,

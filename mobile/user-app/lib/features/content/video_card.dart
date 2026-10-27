@@ -18,6 +18,7 @@ class VideoCardTile extends StatelessWidget {
     this.replaceRoute = false,
     this.trailing,
     this.auth,
+    this.compact = false,
   });
 
   final VideoCard video;
@@ -25,6 +26,7 @@ class VideoCardTile extends StatelessWidget {
   final bool replaceRoute;
   final Widget? trailing;
   final AuthController? auth;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +35,7 @@ class VideoCardTile extends StatelessWidget {
         ? '${video.channelName} · ${AppStrings.format('feed.views', {'count': AppStrings.number(video.views)})}${_dateSuffix(video.publishedAt)}'
         : '${video.channelName}${history.watchedSeconds > 0 ? ' · ${AppStrings.format('library.watchedFor', {'time': _duration(history.watchedSeconds)})}' : ''}${_dateSuffix(history.activityAt)}';
 
+    if (compact) return _compactCard(context, metadata);
     return Semantics(
       button: true,
       label: AppStrings.format('feed.openVideo', {'title': video.title}),
@@ -136,52 +139,7 @@ class VideoCardTile extends StatelessWidget {
                         ],
                       ),
                     ),
-                    trailing ??
-                        PopupMenuButton<String>(
-                          tooltip: AppStrings.t('common.moreOptions'),
-                          padding: EdgeInsets.zero,
-                          style: IconButton.styleFrom(
-                            minimumSize: const Size(48, 48),
-                            tapTargetSize: MaterialTapTargetSize.padded,
-                          ),
-                          icon: const Icon(Icons.more_vert_rounded, size: 18),
-                          onSelected: (action) {
-                            if (action == 'share') {
-                              Share.share(
-                                'Xem "${video.title}" trên Dalitu:\nhttps://hutube.app/watch/${video.id}',
-                              );
-                            } else if (action == 'playlist' && auth != null) {
-                              showAddVideoToPlaylistSheet(
-                                context,
-                                auth: auth!,
-                                videoId: video.id,
-                              );
-                            }
-                          },
-                          itemBuilder: (_) => [
-                            if (auth != null)
-                              PopupMenuItem(
-                                value: 'playlist',
-                                child: Row(
-                                  children: [
-                                    AppIcons.asset(AppIcons.playlist, size: 18),
-                                    const SizedBox(width: 10),
-                                    Text(AppStrings.t('watch.savePlaylist')),
-                                  ],
-                                ),
-                              ),
-                            PopupMenuItem(
-                              value: 'share',
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.share_outlined, size: 18),
-                                  const SizedBox(width: 10),
-                                  Text(AppStrings.t('common.share')),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                    trailing ?? _actions(context),
                   ],
                 ),
               ),
@@ -191,6 +149,151 @@ class VideoCardTile extends StatelessWidget {
       ),
     );
   }
+
+  Widget _actions(BuildContext context) => PopupMenuButton<String>(
+    tooltip: AppStrings.t('common.moreOptions'),
+    padding: EdgeInsets.zero,
+    style: IconButton.styleFrom(
+      minimumSize: const Size(48, 48),
+      tapTargetSize: MaterialTapTargetSize.padded,
+    ),
+    icon: const Icon(Icons.more_vert_rounded, size: 18),
+    onSelected: (action) {
+      if (action == 'share') {
+        Share.share(
+          'Xem "${video.title}" trên Dalitu:\nhttps://hutube.app/watch/${video.id}',
+        );
+      } else if (action == 'playlist' && auth != null) {
+        showAddVideoToPlaylistSheet(context, auth: auth!, videoId: video.id);
+      }
+    },
+    itemBuilder: (_) => [
+      if (auth != null)
+        PopupMenuItem(
+          value: 'playlist',
+          child: Row(
+            children: [
+              AppIcons.asset(AppIcons.playlist, size: 18),
+              const SizedBox(width: 10),
+              Text(AppStrings.t('watch.savePlaylist')),
+            ],
+          ),
+        ),
+      PopupMenuItem(
+        value: 'share',
+        child: Row(
+          children: [
+            const Icon(Icons.share_outlined, size: 18),
+            const SizedBox(width: 10),
+            Text(AppStrings.t('common.share')),
+          ],
+        ),
+      ),
+    ],
+  );
+
+  Widget _compactCard(BuildContext context, String metadata) => InkWell(
+    borderRadius: BorderRadius.circular(12),
+    onTap: () => replaceRoute
+        ? context.go('/watch/${video.id}')
+        : context.push('/watch/${video.id}'),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: LayoutBuilder(
+        builder: (context, bounds) => Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: (bounds.maxWidth * .39).clamp(96.0, 200.0),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (video.thumbnailUrl?.startsWith('http') == true)
+                        Image.network(
+                          video.thumbnailUrl!,
+                          fit: BoxFit.cover,
+                          cacheWidth: 480,
+                          errorBuilder: (_, _, _) => const _VideoFallback(),
+                        )
+                      else
+                        const _VideoFallback(),
+                      Positioned(
+                        right: 4,
+                        bottom: progress != null ? 7 : 4,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: .76),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 2,
+                            ),
+                            child: Text(
+                              _duration(video.duration),
+                              textScaler: TextScaler.noScaling,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (progress != null)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: LinearProgressIndicator(
+                            value: progress!.clamp(0, 1),
+                            minHeight: 3,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    video.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    metadata,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textMutedFor(context),
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: 40, child: trailing ?? _actions(context)),
+          ],
+        ),
+      ),
+    ),
+  );
 
   static String _duration(int seconds) {
     final duration = Duration(seconds: seconds < 0 ? 0 : seconds);

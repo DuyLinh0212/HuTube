@@ -38,7 +38,7 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
   late final PlaylistService _playlistService;
 
   bool _loading = true;
-  String? _channelHandle;
+  String? _channelId;
   List<LibraryVideo> _history = [];
   List<LibraryVideo> _liked = [];
   List<PlaylistSummary> _playlists = [];
@@ -118,7 +118,7 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
       final channel = await _channelService.getMyChannel();
       if (mounted) {
         setState(() {
-          _channelHandle = channel?.handle;
+          _channelId = channel?.id;
         });
       }
     } catch (_) {}
@@ -525,8 +525,8 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                       // Pill 1: Xem kênh / Tạo kênh
                       FilledButton(
                         onPressed: () {
-                          if (_channelHandle != null) {
-                            context.push('/channels/$_channelHandle');
+                          if (_channelId != null) {
+                            context.push('/channels/$_channelId');
                           } else {
                             Navigator.of(context)
                                 .push(
@@ -554,7 +554,7 @@ class _AccountHubScreenState extends State<AccountHubScreen> {
                           minimumSize: const Size(0, 38),
                         ),
                         child: Text(
-                          _channelHandle != null ? 'Xem kênh' : 'Tạo kênh',
+                          _channelId != null ? 'Xem kênh' : 'Tạo kênh',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13.5,

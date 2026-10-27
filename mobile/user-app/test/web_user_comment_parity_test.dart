@@ -11,6 +11,7 @@ import 'package:user_app/core/localization/app_strings.dart';
 import 'package:user_app/core/theme/app_theme.dart';
 import 'package:user_app/features/content/playback_session.dart';
 import 'package:user_app/features/content/watch_screen.dart';
+import 'package:user_app/features/content/widgets/comment_sheets.dart';
 
 import 'auth_test.dart' show MemoryStore, jsonResponse, session;
 
@@ -95,8 +96,28 @@ Future<void> openComments(
   await tester.pumpAndSettle();
 }
 
+Future<void> reveal(WidgetTester tester, Finder finder) async {
+  if (finder.evaluate().isEmpty) {
+    final list = find
+        .descendant(
+          of: find.byType(CommentThreadSheet).last,
+          matching: find.byType(ListView),
+        )
+        .first;
+    final scrollable = find
+        .descendant(of: list, matching: find.byType(Scrollable))
+        .first;
+    tester.state<ScrollableState>(scrollable).position.jumpTo(0);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(finder, 100, scrollable: scrollable);
+  } else {
+    await tester.ensureVisible(finder);
+  }
+  await tester.pumpAndSettle();
+}
+
 Future<void> tap(WidgetTester tester, Finder finder) async {
-  await tester.ensureVisible(finder);
+  await reveal(tester, finder);
   await tester.pumpAndSettle();
   await tester.tap(finder);
   await tester.pumpAndSettle();
@@ -198,6 +219,7 @@ void main() {
         await tap(tester, find.byKey(const ValueKey('comment-replies-root')));
         expect(pages, [1]);
         for (final id in ['r1', 'r2', 'r3']) {
+          await reveal(tester, find.text('Content $id'));
           expect(find.text('Content $id'), findsOneWidget);
         }
         expect(find.text('Content r4'), findsNothing);
@@ -229,25 +251,25 @@ void main() {
         );
         await tap(tester, reply);
         await tester.enterText(
-          find.byKey(const ValueKey('text-entry-input')),
+          find.byKey(const ValueKey('thread-reply-input')).last,
           'Nested reply',
         );
         await tester.pump();
-        await tap(
-          tester,
-          find.widgetWithText(FilledButton, AppStrings.t('common.send')),
-        );
+        await tap(tester, find.byTooltip(AppStrings.t('common.send')).last);
         expect(parents, ['nested']);
         expect(find.text('Nested reply'), findsOneWidget);
+        await tap(tester, find.byTooltip(AppStrings.t('common.close')).last);
+        await tap(tester, find.byTooltip(AppStrings.t('common.close')).last);
         await tap(tester, find.byKey(const ValueKey('comment-more-root')));
         expect(pages, [1, 2]);
+        await reveal(tester, find.text('Content r5'));
         expect(find.text('Content r5'), findsOneWidget);
-        await tap(tester, find.byKey(const ValueKey('comment-replies-root')));
+        await tap(tester, find.byTooltip(AppStrings.t('common.close')).last);
         expect(find.text('Content r1'), findsNothing);
         await tap(tester, find.byKey(const ValueKey('comment-replies-root')));
         expect(find.text('Content r1'), findsOneWidget);
         expect(find.text('Content r4'), findsNothing);
-        expect(pages, [1, 2]);
+        expect(pages, [1, 2, 1]);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
       },
@@ -300,6 +322,7 @@ void main() {
       await tap(tester, find.byKey(const ValueKey('comment-more-root')));
       expect(pages, [1, 1, 2]);
       for (var i = 2; i <= 5; i++) {
+        await reveal(tester, find.text('Content r$i'));
         expect(find.text('Content r$i'), findsOneWidget);
       }
       expect(tester.takeException(), isNull);
@@ -357,26 +380,23 @@ void main() {
     );
     await tap(tester, reply);
     await tester.enterText(
-      find.byKey(const ValueKey('text-entry-input')),
+      find.byKey(const ValueKey('thread-reply-input')).last,
       'Keep my reply',
     );
     await tester.pump();
-    await tap(
-      tester,
-      find.widgetWithText(FilledButton, AppStrings.t('common.send')),
-    );
+    await tap(tester, find.byTooltip(AppStrings.t('common.send')).last);
+    await tap(tester, find.byTooltip(AppStrings.t('common.close')).last);
     await tap(tester, reply);
     expect(
       tester
-          .widget<TextField>(find.byKey(const ValueKey('text-entry-input')))
+          .widget<TextField>(
+            find.byKey(const ValueKey('thread-reply-input')).last,
+          )
           .controller
           ?.text,
       'Keep my reply',
     );
-    await tap(
-      tester,
-      find.widgetWithText(FilledButton, AppStrings.t('common.send')),
-    );
+    await tap(tester, find.byTooltip(AppStrings.t('common.send')).last);
     expect(attempts, 2);
     expect(find.text('Keep my reply'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());

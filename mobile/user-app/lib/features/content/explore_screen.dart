@@ -43,6 +43,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   final Map<String, int> _subscriptionVersions = {};
   late int _sessionGeneration;
   late bool _authenticated;
+  String? _ownChannelId;
+  bool _ownershipReady = false;
 
   @override
   void initState() {
@@ -66,9 +68,31 @@ class _ExploreScreenState extends State<ExploreScreen> {
       _subscriptions.clear();
       _subscriptionLoading.clear();
       _subscriptionVersions.clear();
+      _ownChannelId = null;
+      _ownershipReady = false;
     });
+    unawaited(_loadOwnership());
     if (_authenticated && _hub != null) {
       unawaited(_loadSubscriptionStates(_hub!.creators));
+    }
+  }
+
+  Future<void> _loadOwnership() async {
+    final session = widget.auth.sessionGeneration;
+    final authenticated = widget.auth.authenticated;
+    try {
+      final channel = authenticated ? await _channels.getMyChannel() : null;
+      if (!mounted ||
+          session != widget.auth.sessionGeneration ||
+          authenticated != widget.auth.authenticated) {
+        return;
+      }
+      setState(() {
+        _ownChannelId = channel?.id;
+        _ownershipReady = true;
+      });
+    } catch (_) {
+      // Leave subscription controls disabled until ownership can be verified.
     }
   }
 
@@ -80,6 +104,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Future<void> _load() async {
     if (!mounted) return;
+    if (!_ownershipReady) unawaited(_loadOwnership());
     final generation = ++_loadGeneration;
     if (mounted) {
       setState(() {
@@ -182,6 +207,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Future<void> _toggleSubscription(FeaturedCreator creator) async {
+    if (!_ownershipReady || creator.id == _ownChannelId) return;
     if (!widget.auth.authenticated) {
       if (mounted) context.push('/auth');
       return;
@@ -229,7 +255,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final rankingTitle = _selectedCategoryId == null
         ? AppStrings.t('explore.overallTop12')
         : AppStrings.format('explore.top12Category', {
-            'category': _selectedCategoryName,
+            'category':
+                hub.rankings
+                    .where((group) => group.id == _selectedCategoryId)
+                    .firstOrNull
+                    ?.displayName ??
+                _selectedCategoryName,
           });
 
     return RefreshIndicator(
@@ -281,6 +312,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
               creators: hub.creators,
               subscriptions: _subscriptions,
               loading: _subscriptionLoading,
+              ownChannelId: _ownChannelId,
+              ownershipReady: _ownershipReady,
               onSubscribe: _toggleSubscription,
             ),
           ],
@@ -379,9 +412,9 @@ class _CategoryTabs extends StatelessWidget {
         ),
         for (final group in groups)
           _CategoryChip(
-            label: group.name,
+            label: group.displayName,
             selected: selectedId == group.id,
-            onTap: () => onSelected(group.id, group.name),
+            onTap: () => onSelected(group.id, group.displayName),
           ),
       ],
     ),
@@ -583,16 +616,20 @@ class _CreatorsRow extends StatelessWidget {
     required this.subscriptions,
     required this.loading,
     required this.onSubscribe,
+    required this.ownChannelId,
+    required this.ownershipReady,
   });
 
   final List<FeaturedCreator> creators;
   final Map<String, bool> subscriptions;
   final Set<String> loading;
   final ValueChanged<FeaturedCreator> onSubscribe;
+  final String? ownChannelId;
+  final bool ownershipReady;
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    height: 174,
+    height: 194 + (MediaQuery.textScalerOf(context).scale(24) - 24),
     child: ListView.separated(
       scrollDirection: Axis.horizontal,
       itemCount: creators.length,
@@ -600,6 +637,7 @@ class _CreatorsRow extends StatelessWidget {
       itemBuilder: (context, index) {
         final creator = creators[index];
         final subscribed = subscriptions[creator.id] ?? false;
+        final isOwner = creator.id == ownChannelId;
         return SizedBox(
           width: 162,
           child: HuTubeSurface(
@@ -655,10 +693,12 @@ class _CreatorsRow extends StatelessWidget {
                 const Spacer(),
                 SizedBox(
                   width: double.infinity,
-                  height: 30,
+                  height: 48,
                   child: OutlinedButton(
-                    onPressed: loading.contains(creator.id)
+                    onPressed: !ownershipReady || loading.contains(creator.id)
                         ? null
+                        : isOwner
+                        ? () => context.push('/channels/${creator.handle}')
                         : () => onSubscribe(creator),
                     style: OutlinedButton.styleFrom(
                       padding: EdgeInsets.zero,
@@ -680,7 +720,9 @@ class _CreatorsRow extends StatelessWidget {
                           )
                         : Text(
                             AppStrings.t(
-                              subscribed
+                              isOwner
+                                  ? 'channel.yourChannel'
+                                  : subscribed
                                   ? 'explore.subscribed'
                                   : 'explore.subscribe',
                             ),

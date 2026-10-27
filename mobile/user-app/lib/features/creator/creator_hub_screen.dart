@@ -7,7 +7,6 @@ import '../../channel/screens/channel_settings_screen.dart';
 import '../../channel/screens/create_channel_screen.dart';
 import '../../channel/services/channel_service.dart';
 import '../../core/localization/app_strings.dart';
-import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hutube_widgets.dart';
 import 'creator_analytics_screen.dart';
@@ -15,6 +14,10 @@ import 'creator_comments_screen.dart';
 import 'creator_content_screen.dart';
 import 'creator_subtitles_screen.dart';
 import 'video_upload_screen.dart';
+import '../../channel/screens/channel_members_screen.dart';
+import '../../channel/screens/channel_links_screen.dart';
+import '../moderation/moderation_screen.dart';
+import '../policies/policies_screen.dart';
 
 class CreatorHubScreen extends StatefulWidget {
   const CreatorHubScreen({
@@ -49,7 +52,21 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
     });
     try {
       final service = ChannelService(widget.auth);
-      final accessibleChannels = await service.getAccessibleChannels();
+      final accessibleChannels = [...await service.getAccessibleChannels()];
+      // The accessible endpoint omits suspended channels. Check ownership before
+      // claiming that a creator has no channel and offering to create another.
+      if (!accessibleChannels.any((channel) => channel.isOwner)) {
+        try {
+          final own = await service.getMyChannel();
+          if (own != null &&
+              own.id.isNotEmpty &&
+              !accessibleChannels.any((channel) => channel.id == own.id)) {
+            accessibleChannels.insert(0, own);
+          }
+        } catch (_) {
+          if (accessibleChannels.isEmpty) rethrow;
+        }
+      }
       final selectedChannel = accessibleChannels
           .where((channel) => channel.id == selectedChannelId)
           .firstOrNull;
@@ -63,7 +80,9 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
               selectedChannel ?? ownedChannel ?? accessibleChannels.firstOrNull;
           _loading = false;
         });
-        if (widget.openUpload && !_uploadOpened && _channel != null) {
+        if (widget.openUpload &&
+            !_uploadOpened &&
+            _channel?.can('video.upload') == true) {
           _uploadOpened = true;
           await _open(VideoUploadScreen(auth: widget.auth, channel: _channel!));
         }
@@ -125,177 +144,286 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
       );
     }
     final channel = _channel!;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-      children: [
-        if (_accessibleChannels.length > 1)
-          DropdownButtonFormField<String>(
-            isExpanded: true,
-            initialValue: channel.id,
-            decoration: InputDecoration(
-              labelText: AppStrings.t('creator.channelSelector'),
+    if (channel.status == 'suspended' && _accessibleChannels.length == 1) {
+      return HuTubeStateView(
+        icon: Icons.pause_circle_outline_rounded,
+        title: AppStrings.t('channel.suspendedTitle'),
+        message: AppStrings.t('creator.uploadSuspended'),
+        actionLabel: AppStrings.t('channel.statusAndAppeal'),
+        onAction: () => _open(
+          Scaffold(
+            appBar: AppBar(
+              title: Text(AppStrings.t('channel.statusAndAppeal')),
             ),
-            items: _accessibleChannels
-                .map(
-                  (item) => DropdownMenuItem(
-                    value: item.id,
-                    child: Text(
-                      AppStrings.format('creator.managedAs', {
-                        'name': item.name,
-                        'role': _roleLabel(item),
-                      }),
+            body: ModerationScreen(auth: widget.auth, channel: channel),
+          ),
+        ),
+        accent: Theme.of(context).colorScheme.error,
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        children: [
+          Text(
+            AppStrings.t('creator.title'),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            AppStrings.format('creator.manageDescription', {
+              'name': channel.name,
+            }),
+            style: TextStyle(color: AppColors.textSecondaryFor(context)),
+          ),
+          const SizedBox(height: 16),
+          if (channel.status == 'suspended') ...[
+            HuTubeNotice(
+              message: AppStrings.t('creator.uploadSuspended'),
+              actionLabel: AppStrings.t('channel.statusAndAppeal'),
+              onAction: () => _open(
+                Scaffold(
+                  appBar: AppBar(
+                    title: Text(AppStrings.t('channel.statusAndAppeal')),
+                  ),
+                  body: ModerationScreen(auth: widget.auth, channel: channel),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (_accessibleChannels.length > 1)
+            DropdownButtonFormField<String>(
+              isExpanded: true,
+              initialValue: channel.id,
+              decoration: InputDecoration(
+                labelText: AppStrings.t('creator.channelSelector'),
+              ),
+              items: _accessibleChannels
+                  .map(
+                    (item) => DropdownMenuItem(
+                      value: item.id,
+                      child: Text(
+                        AppStrings.format('creator.managedAs', {
+                          'name': item.name,
+                          'role': _roleLabel(item),
+                        }),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                final selected = _accessibleChannels
+                    .where((item) => item.id == value)
+                    .firstOrNull;
+                if (selected != null) setState(() => _channel = selected);
+              },
+            ),
+          if (_accessibleChannels.length > 1) const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.surfaceFor(context),
+                  Color.alphaBlend(
+                    AppColors.primaryPink.withValues(alpha: .09),
+                    AppColors.surfaceFor(context),
+                  ),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.borderFor(context)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    HuTubeAvatar(
+                      url: channel.avatarUrl,
+                      label: channel.name,
+                      radius: 26,
+                      backgroundColor: AppColors.violet.withValues(alpha: .2),
+                      foregroundColor: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            channel.name,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            '@${channel.handle}',
+                            style: TextStyle(
+                              color: AppColors.textSecondaryFor(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StudioStat(
+                        label: AppStrings.t('creator.metricSubscribers'),
+                        value: AppStrings.number(channel.subscriberCount),
+                      ),
+                    ),
+                    Expanded(
+                      child: _StudioStat(
+                        label: AppStrings.t('creator.metricVideos'),
+                        value: AppStrings.number(channel.videoCount),
+                      ),
+                    ),
+                    Expanded(
+                      child: _StudioStat(
+                        label: AppStrings.t('creator.metricViews'),
+                        value: AppStrings.number(channel.viewCount),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (channel.can('video.upload'))
+                  SizedBox(
+                    width: null,
+                    child: FilledButton.tonalIcon(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 48),
+                      ),
+                      onPressed: () => _open(
+                        VideoUploadScreen(auth: widget.auth, channel: channel),
+                      ),
+                      icon: const Icon(Icons.add_rounded),
+                      label: Text(AppStrings.t('creator.upload')),
                     ),
                   ),
-                )
-                .toList(),
-            onChanged: (value) {
-              final selected = _accessibleChannels
-                  .where((item) => item.id == value)
-                  .firstOrNull;
-              if (selected != null) setState(() => _channel = selected);
-            },
-          ),
-        if (_accessibleChannels.length > 1) const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppColors.ink, Color(0xFF36263C)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+              ],
             ),
-            borderRadius: BorderRadius.circular(18),
           ),
-          child: Column(
+          const SizedBox(height: 16),
+          _CreatorTools(
             children: [
-              Row(
-                children: [
-                  HuTubeAvatar(
-                    url: channel.avatarUrl,
-                    label: channel.name,
-                    radius: 26,
-                    backgroundColor: AppColors.violet.withValues(alpha: .2),
-                    foregroundColor: Colors.white,
+              if (channel.can('video.view'))
+                _CreatorAction(
+                  icon: Icons.video_library_outlined,
+                  title: AppStrings.t('creator.content'),
+                  detail: AppStrings.t('creator.contentDescription'),
+                  onTap: () => _open(
+                    CreatorContentScreen(auth: widget.auth, channel: channel),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          channel.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '@${channel.handle}',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: .68),
-                          ),
-                        ),
-                      ],
-                    ),
+                ),
+              if (channel.can('analytics.view'))
+                _CreatorAction(
+                  icon: Icons.insights_rounded,
+                  title: AppStrings.t('creator.analytics'),
+                  detail: AppStrings.t('creator.analyticsDescription'),
+                  onTap: () => _open(
+                    CreatorAnalyticsScreen(auth: widget.auth, channel: channel),
                   ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: _StudioStat(
-                      label: AppStrings.t('creator.metricSubscribers'),
-                      value: AppStrings.number(channel.subscriberCount),
-                    ),
+                ),
+              if (channel.can('comment.manage'))
+                _CreatorAction(
+                  icon: Icons.forum_outlined,
+                  title: AppStrings.t('creator.comments'),
+                  detail: AppStrings.t('creator.commentsDescription'),
+                  onTap: () => _open(
+                    CreatorCommentsScreen(auth: widget.auth, channel: channel),
                   ),
-                  Expanded(
-                    child: _StudioStat(
-                      label: AppStrings.t('creator.metricVideos'),
-                      value: AppStrings.number(channel.videoCount),
-                    ),
+                ),
+              if (channel.can('video.view'))
+                _CreatorAction(
+                  icon: Icons.subtitles_outlined,
+                  title: AppStrings.t('creator.subtitles'),
+                  detail: AppStrings.t('creator.subtitlesDescription'),
+                  onTap: () => _open(
+                    CreatorSubtitlesScreen(auth: widget.auth, channel: channel),
                   ),
-                  Expanded(
-                    child: _StudioStat(
-                      label: AppStrings.t('creator.metricViews'),
-                      value: AppStrings.number(channel.viewCount),
-                    ),
-                  ),
-                ],
-              ),
+                ),
             ],
           ),
-        ),
-        const SizedBox(height: 12),
-        _CreatorAction(
-          customIcon: AppIcons.asset(
-            AppIcons.upload,
-            size: 20,
-            color: AppColors.primaryPink,
+          const SizedBox(height: 16),
+          if (channel.can('channel.setting.view') ||
+              channel.can('channel.edit_profile') ||
+              channel.can('channel.edit_branding'))
+            _CreatorAction(
+              compact: true,
+              icon: Icons.settings_outlined,
+              title: AppStrings.t('creator.settings'),
+              detail: AppStrings.t('creator.settingsDescription'),
+              onTap: () => _open(
+                ChannelSettingsScreen(auth: widget.auth, channel: channel),
+              ),
+            ),
+          _CreatorAction(
+            compact: true,
+            icon: Icons.group_outlined,
+            title: AppStrings.t('creator.invitations'),
+            detail: AppStrings.t('creator.invitationsDescription'),
+            onTap: () => _open(ChannelInvitationsScreen(auth: widget.auth)),
           ),
-          title: AppStrings.t('creator.upload'),
-          detail: AppStrings.t('creator.uploadDescription'),
-          onTap: () =>
-              _open(VideoUploadScreen(auth: widget.auth, channel: channel)),
-        ),
-        _CreatorAction(
-          customIcon: AppIcons.asset(
-            AppIcons.myVideo,
-            size: 20,
-            color: AppColors.primaryPink,
+          if (channel.can('channel.edit_profile'))
+            _CreatorAction(
+              compact: true,
+              icon: Icons.link_rounded,
+              title: AppStrings.t('channel.socialLinks'),
+              detail: AppStrings.t('channel.linksDescription'),
+              onTap: () => _open(
+                ChannelLinksScreen(auth: widget.auth, channel: channel),
+              ),
+            ),
+          if (channel.can('member.view'))
+            _CreatorAction(
+              compact: true,
+              icon: Icons.manage_accounts_outlined,
+              title: AppStrings.t('channel.members'),
+              detail: AppStrings.t('channel.inviteDescription'),
+              onTap: () => _open(
+                ChannelMembersScreen(auth: widget.auth, channel: channel),
+              ),
+            ),
+          _CreatorAction(
+            compact: true,
+            icon: Icons.policy_outlined,
+            title: AppStrings.t('policies.title'),
+            detail: AppStrings.t('policies.description'),
+            onTap: () => _open(
+              Scaffold(
+                appBar: AppBar(title: Text(AppStrings.t('policies.title'))),
+                body: PoliciesScreen(auth: widget.auth),
+              ),
+            ),
           ),
-          title: AppStrings.t('creator.content'),
-          detail: AppStrings.t('creator.contentDescription'),
-          onTap: () =>
-              _open(CreatorContentScreen(auth: widget.auth, channel: channel)),
-        ),
-        _CreatorAction(
-          customIcon: AppIcons.asset(
-            AppIcons.statistics,
-            size: 20,
-            color: AppColors.primaryPink,
-          ),
-          title: AppStrings.t('creator.analytics'),
-          detail: AppStrings.t('creator.analyticsDescription'),
-          onTap: () => _open(
-            CreatorAnalyticsScreen(auth: widget.auth, channel: channel),
-          ),
-        ),
-        _CreatorAction(
-          icon: Icons.forum_outlined,
-          title: AppStrings.t('creator.comments'),
-          detail: AppStrings.t('creator.commentsDescription'),
-          onTap: () =>
-              _open(CreatorCommentsScreen(auth: widget.auth, channel: channel)),
-        ),
-        _CreatorAction(
-          icon: Icons.subtitles_outlined,
-          title: AppStrings.t('creator.subtitles'),
-          detail: AppStrings.t('creator.subtitlesDescription'),
-          onTap: () => _open(
-            CreatorSubtitlesScreen(auth: widget.auth, channel: channel),
-          ),
-        ),
-        _CreatorAction(
-          customIcon: AppIcons.asset(
-            AppIcons.setting,
-            size: 20,
-            color: AppColors.primaryPink,
-          ),
-          title: AppStrings.t('creator.settings'),
-          detail: AppStrings.t('creator.settingsDescription'),
-          onTap: () =>
-              _open(ChannelSettingsScreen(auth: widget.auth, channel: channel)),
-        ),
-        _CreatorAction(
-          icon: Icons.group_outlined,
-          title: AppStrings.t('creator.invitations'),
-          detail: AppStrings.t('creator.invitationsDescription'),
-          onTap: () => _open(ChannelInvitationsScreen(auth: widget.auth)),
-        ),
-      ],
+          if (channel.isOwner || channel.can('copyright.view'))
+            _CreatorAction(
+              compact: true,
+              icon: Icons.verified_user_outlined,
+              title: AppStrings.t('creator.channelStatus'),
+              detail: AppStrings.t('creator.channelStatusHint'),
+              onTap: () =>
+                  _open(ModerationScreen(auth: widget.auth, channel: channel)),
+            ),
+        ],
+      ),
     );
   }
 
@@ -314,44 +442,40 @@ class _CreatorHubScreenState extends State<CreatorHubScreen> {
 class _CreatorAction extends StatelessWidget {
   const _CreatorAction({
     this.icon,
-    this.customIcon,
+    this.compact = false,
     required this.title,
     required this.detail,
     this.onTap,
   });
   final IconData? icon;
-  final Widget? customIcon;
+  final bool compact;
   final String title;
   final String detail;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final iconWidget = Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: AppColors.primaryPink.withValues(alpha: .12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      alignment: Alignment.center,
+      child: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 22),
+    );
     return Card(
       elevation: 0,
-      margin: const EdgeInsets.only(bottom: 8),
-      color: isDark ? const Color(0xFF1C1824) : AppColors.surface,
+      margin: EdgeInsets.only(bottom: compact ? 8 : 0),
+      color: AppColors.surfaceFor(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: isDark ? const Color(0xFF2C2436) : AppColors.cardBorder,
-        ),
+        side: BorderSide(color: AppColors.borderFor(context)),
       ),
       child: ListTile(
-        dense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-        leading: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: AppColors.primaryPink.withValues(alpha: .12),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          alignment: Alignment.center,
-          child:
-              customIcon ?? Icon(icon, color: AppColors.primaryPink, size: 20),
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        leading: iconWidget,
         title: Text(
           title,
           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
@@ -359,11 +483,9 @@ class _CreatorAction extends StatelessWidget {
         subtitle: Text(
           detail,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 13,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
         ),
         trailing: onTap == null
             ? const Icon(Icons.info_outline, size: 18)
@@ -372,6 +494,19 @@ class _CreatorAction extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CreatorTools extends StatelessWidget {
+  const _CreatorTools({required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      for (final child in children)
+        Padding(padding: const EdgeInsets.only(bottom: 8), child: child),
+    ],
+  );
 }
 
 class _StudioStat extends StatelessWidget {
@@ -385,17 +520,13 @@ class _StudioStat extends StatelessWidget {
     children: [
       Text(
         value,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 16,
-          fontWeight: FontWeight.w900,
-        ),
+        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
       ),
       const SizedBox(height: 3),
       Text(
         label,
         style: TextStyle(
-          color: Colors.white.withValues(alpha: .62),
+          color: AppColors.textSecondaryFor(context),
           fontSize: 11,
         ),
       ),

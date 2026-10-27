@@ -153,11 +153,37 @@ class _LibraryScreenState extends State<LibraryScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-              child: HuTubeSectionHeader(
-                title: AppStrings.t('library.title'),
-                subtitle: AppStrings.t('library.subtitle'),
-                action: AppStrings.t('library.playlists'),
-                onAction: () => context.push('/playlists'),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppStrings.t('library.title'),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          AppStrings.t('library.subtitle'),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: AppColors.textMutedFor(context),
+                                height: 1.4,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton.filledTonal(
+                    tooltip: AppStrings.t('library.playlists'),
+                    onPressed: () => context.push('/playlists'),
+                    icon: const Icon(Icons.video_library_outlined),
+                  ),
+                ],
               ),
             ),
           ),
@@ -167,20 +193,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
               tabAlignment: TabAlignment.start,
               onTap: (value) => setState(() => _tab = value),
               tabs: [
-                Tab(
-                  icon: const Icon(Icons.history_rounded, size: 22),
-                  text: AppStrings.t('library.history'),
-                ),
-                Tab(
-                  icon: const Icon(Icons.star_outline_rounded, size: 22),
-                  text: AppStrings.t('library.liked'),
-                ),
+                Tab(text: AppStrings.t('library.history')),
+                Tab(text: AppStrings.t('library.liked')),
               ],
             ),
           ),
           if (_tab == 0)
             SliverToBoxAdapter(
               child: ContentFilters(
+                compact: true,
                 initialQuery: _query,
                 initialValues: {'sort': _sort, 'dateRange': _dateRange},
                 options: const {
@@ -274,6 +295,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 itemBuilder: (_, index) {
                   final item = (_tab == 0 ? _history : _liked)[index];
                   return VideoCardTile(
+                    compact: true,
+                    auth: widget.auth,
                     video: item,
                     progress: _tab == 0 ? item.progress : null,
                   );

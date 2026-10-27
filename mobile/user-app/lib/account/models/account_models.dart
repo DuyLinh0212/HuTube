@@ -184,6 +184,7 @@ class NotificationSettingModel {
 
 class UserPreferencesModel {
   const UserPreferencesModel({
+    this.language = 'vi',
     this.theme = 'system',
     this.defaultPlaybackQuality = 'auto',
     this.autoplayNext = true,
@@ -193,6 +194,7 @@ class UserPreferencesModel {
   });
 
   final String theme;
+  final String language;
   final String defaultPlaybackQuality;
   final bool autoplayNext;
   final bool keepSubscriptionsPrivate;
@@ -201,6 +203,7 @@ class UserPreferencesModel {
 
   factory UserPreferencesModel.fromJson(Map<String, dynamic> json) {
     return UserPreferencesModel(
+      language: json['language'] as String? ?? 'vi',
       theme: json['theme'] as String? ?? 'system',
       defaultPlaybackQuality:
           json['defaultPlaybackQuality'] as String? ?? 'auto',
@@ -213,15 +216,15 @@ class UserPreferencesModel {
   }
 
   Map<String, dynamic> toJson() => {
+    'language': language,
     'theme': theme,
-    'defaultPlaybackQuality': defaultPlaybackQuality,
-    'autoplayNext': autoplayNext,
     'keepSubscriptionsPrivate': keepSubscriptionsPrivate,
     'keepPlaylistsPrivate': keepPlaylistsPrivate,
     'location': location,
   };
 
   UserPreferencesModel copyWith({
+    String? language,
     String? theme,
     String? defaultPlaybackQuality,
     bool? autoplayNext,
@@ -230,6 +233,7 @@ class UserPreferencesModel {
     String? location,
   }) {
     return UserPreferencesModel(
+      language: language ?? this.language,
       theme: theme ?? this.theme,
       defaultPlaybackQuality:
           defaultPlaybackQuality ?? this.defaultPlaybackQuality,

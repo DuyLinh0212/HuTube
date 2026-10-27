@@ -80,6 +80,16 @@ void main() {
             permitted && mode != 'off',
           );
           await native.onPlatformViewCreated(44003, context);
+          playback.ready = true;
+          playback.isPlaying = true;
+          expect(playback.automaticPipEligible, permitted && mode != 'off');
+          playback.isPlaying = false;
+          expect(
+            playback.automaticPipEligible,
+            false,
+            reason: 'A paused video does not automatically enter PiP',
+          );
+          playback.ready = false;
           playback.didChangeAppLifecycleState(AppLifecycleState.paused);
           playback.didChangeAppLifecycleState(AppLifecycleState.resumed);
           expect(
@@ -138,4 +148,31 @@ void main() {
       });
     }
   }
+
+  group('plan media permissions', () {
+    test('reads background and PiP permissions from the plan feature map', () {
+      final entitlements = MediaEntitlements.fromPayload({
+        'features': {'background_play': true, 'pip': true},
+      });
+
+      expect(entitlements.backgroundPlayback, isTrue);
+      expect(entitlements.pictureInPicture, isTrue);
+    });
+
+    test(
+      'defaults to disabled media capabilities for missing or invalid data',
+      () {
+        expect(
+          MediaEntitlements.fromPayload(const {}).backgroundPlayback,
+          isFalse,
+        );
+        expect(
+          MediaEntitlements.fromPayload({
+            'features': 'not-a-map',
+          }).pictureInPicture,
+          isFalse,
+        );
+      },
+    );
+  });
 }
