@@ -32,8 +32,9 @@ def run(suite,config,actors):
                 suite.api(member,'patch','/videos/'+vid,data={'title':video['title']},expected=200 if rights['edit'] else 403)
                 suite.api(member,'get','/channels/'+cid+'/comments/manage',expected=200 if rights['comments'] else 403)
                 suite.api(member,'get','/videos/manage',params={'channelId':cid},expected=200 if rights['content'] else 403)
+                suite.api(member,'get','/studio/channels/'+cid+'/hourly-analytics',expected=200 if rights['analytics'] else 403)
                 entry['resource_ids']=[cid,vid,member['identity']['userId']]
-                entry['steps']=['Owner assigns '+role+' through real API','Direct UI guard checks upload/comments/analytics/settings/content separately','Backend preflight/edit/comment inventory/content inventory allowed/denied independently','Analytics is computed from managed-video data; no standalone analytics API exists']
+                entry['steps']=['Owner assigns '+role+' through real API','Direct UI guard checks upload/comments/analytics/settings/content separately','Backend preflight/edit/comment inventory/content inventory and hourly analytics allowed/denied independently']
             case(suite,member,'CHANNEL-STUDIO-PERMISSIONS-'+role.upper(),'U-CHANNEL.04','Full Studio permissions for '+role,matrix,'permissions')
     finally:
         suite.api(owner,'delete','/channels/'+cid+'/members/'+member['identity']['userId'],expected=204)

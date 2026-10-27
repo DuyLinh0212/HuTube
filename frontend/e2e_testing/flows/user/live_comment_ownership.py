@@ -1,5 +1,6 @@
 """Two supplied identities, channel permission denial and real threaded replies."""
 from support.ui_confirmation import app_confirm
+from support.comment_actions import click_comment_delete, comment_menu
 import json
 from playwright.sync_api import expect
 from support.live_suite import PrerequisiteMissing
@@ -39,7 +40,7 @@ def run(suite,owner,other):
             suite.go(other,'/watch/'+video_id,'app-watch-page')
             row=other['page'].locator('.comment-list > .comment-row').filter(has_text=text)
             expect(row).to_have_count(1)
-            expect(row.locator('.is-danger')).to_have_count(0)
+            expect(comment_menu(row)).to_have_count(0)
             suite.api(other,'delete','/comments/'+parent['commentId'],expected=403)
             suite.api(other,'patch','/comments/'+parent['commentId'],data={'content':'Forbidden edit '+suite.run_id},expected=403)
             items=suite.api(owner,'get',base+'/comments').json()['items']
@@ -54,7 +55,7 @@ def run(suite,owner,other):
             suite.go(other,'/watch/'+video_id,'app-watch-page')
             page=other['page']; row=page.locator('.comment-list > .comment-row').filter(has_text=text)
             row.locator('.comment-actions > button').nth(2).click()
-            row.locator('input[name=reply]').fill(reply_text)
+            row.locator('input[name=replyText]').fill(reply_text)
             response=suite.response(other,base+'/comments',lambda:row.locator('.reply-composer button[type=submit]').click(),method='POST',status=201)
             reply.update(response.json()); persist_checkpoint()
             assert reply['parentCommentId']==parent['commentId'] and reply['userId']==other['identity']['userId']
@@ -74,9 +75,9 @@ def run(suite,owner,other):
             replies=suite.api(other,'get','/comments/'+parent['commentId']+'/replies').json()['items']
             assert sum(c['commentId']==reply['commentId'] for c in replies)==1
             own_reply=row.locator('.comment-row--reply').filter(has_text=reply_text)
-            app_confirm(page, lambda: own_reply.locator('.is-danger').click(), accept=False)
+            app_confirm(page, lambda: click_comment_delete(own_reply), accept=False)
             assert any(c['commentId']==reply['commentId'] for c in suite.api(other,'get','/comments/'+parent['commentId']+'/replies').json()['items'])
-            suite.response(other,'/comments/'+reply['commentId'],lambda:app_confirm(page, lambda: own_reply.locator('.is-danger').click(), accept=True),method='DELETE',status=204)
+            suite.response(other,'/comments/'+reply['commentId'],lambda:app_confirm(page, lambda: click_comment_delete(own_reply), accept=True),method='DELETE',status=204)
             assert not any(c['commentId']==reply['commentId'] for c in suite.api(other,'get','/comments/'+parent['commentId']+'/replies').json()['items'])
             assert any(c['commentId']==parent['commentId'] for c in suite.api(owner,'get',base+'/comments').json()['items'])
             case['resource_ids']=[video_id,parent['commentId'],reply['commentId']]

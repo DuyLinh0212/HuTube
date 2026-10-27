@@ -1,4 +1,5 @@
 from support.ui_confirmation import app_confirm
+from support.comment_actions import click_comment_edit, comment_menu
 from playwright.sync_api import expect
 from flows.expanded.common import case,snapshot_module
 from support.live_suite import PrerequisiteMissing
@@ -58,19 +59,19 @@ def run(suite,config,actors):
         case(suite,owner,'STUDIO-COMMENTS-HIDE-RESTORE','U-STUDIO.08','Hidden comment enforcement across actors',visibility,'comments')
         def edit_ui(entry):
             suite.go(member,'/watch/'+vid,'app-watch-page');row=member['page'].locator('.comment-list > .comment-row').filter(has_text=text)
-            expect(row.get_by_role('button',name=__import__('re').compile('Edit|Chỉnh sửa|Sửa',__import__('re').I))).to_be_visible()
-            q=member['page'];button=row.get_by_role('button',name=__import__('re').compile('Edit|Chỉnh sửa|Sửa',__import__('re').I))
-            button.click();form=q.locator('.comment-edit-form');form.locator('textarea').fill('Cancelled edit')
+            expect(comment_menu(row).locator('summary')).to_be_visible()
+            q=member['page']
+            click_comment_edit(row);form=q.locator('.comment-edit-form');form.locator('textarea').fill('Cancelled edit')
             form.get_by_role('button',name=__import__('re').compile('Cancel|Hủy')).click()
             assert next(c for c in suite.api(member,'get',base).json()['items'] if c['commentId']==comment['commentId'])['content']==text
-            button.click();form.locator('textarea').fill('');expect(form.locator('button[type=submit]')).to_be_disabled()
+            click_comment_edit(row);form.locator('textarea').fill('');expect(form.locator('button[type=submit]')).to_be_disabled()
             changed=text+' — edited';form.locator('textarea').fill(changed)
             suite.response(member,path,lambda:form.locator('button[type=submit]').click(),method='PATCH')
             q.reload();expect(q.locator('.comment-list > .comment-row').filter(has_text=changed)).to_have_count(1)
             assert next(c for c in suite.api(member,'get',base).json()['items'] if c['commentId']==comment['commentId'])['content']==changed
             suite.api(actors['target'],'patch',path,data={'content':'Foreign overwrite'},expected=(403,404))
             # Restore via author UI so later moderation cases retain their exact fixture text.
-            row=q.locator('.comment-list > .comment-row').filter(has_text=changed);row.get_by_role('button',name=__import__('re').compile('Edit|Chỉnh sửa|Sửa',__import__('re').I)).click()
+            row=q.locator('.comment-list > .comment-row').filter(has_text=changed);click_comment_edit(row)
             q.locator('.comment-edit-form textarea[name=commentEdit]').fill(text);suite.response(member,path,lambda:q.locator('.comment-edit-form button[type=submit]').click(),method='PATCH')
             entry['resource_ids']=[comment['commentId']]
             entry['steps']=['Author opens actual edit UI','Cancel leaves persisted content unchanged','Empty edit cannot save','Save PATCH persists; reload shows edited content','Other Member cannot overwrite author comment','Restore original text through author UI']

@@ -2,6 +2,7 @@
 import argparse
 import functools
 import json
+import sys
 import threading
 from datetime import datetime, timedelta, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -9,6 +10,10 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from playwright.sync_api import expect, sync_playwright
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'frontend' / 'e2e_testing'))
+from support.comment_actions import click_comment_delete, click_comment_edit, comment_menu
+from support.ui_confirmation import app_confirm
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--root', type=Path, required=True)
@@ -130,11 +135,14 @@ try:
             own, other = page.locator('[data-comment-id="own"]'), page.locator('[data-comment-id="other"]')
             expect(own.locator('.comment-menu summary')).to_be_visible()
             expect(other.locator('.comment-menu')).to_have_count(0)
-            own.locator('.comment-menu summary').click()
-            expect(own.locator('.comment-menu button').last).to_be_visible()
+            click_comment_edit(own)
+            expect(own.locator('.comment-edit-form')).to_be_visible()
+            own.locator('.comment-edit-form button').last.click()
+            expect(comment_menu(own).locator('summary')).to_be_visible()
             if width == 1440:
-                own.locator('.comment-menu button').last.click()
-                page.get_by_role('button', name='Xác nhận', exact=True).click()
+                app_confirm(page, lambda: click_comment_delete(own), accept=False)
+                expect(own).to_have_count(1)
+                app_confirm(page, lambda: click_comment_delete(own), accept=True)
                 expect(own).to_have_count(0)
                 assert deleted == ['own']
             page.goto(base + '/embed/' + video_id)
