@@ -967,6 +967,8 @@
   to { opacity: 1; transform: scale(1); }
 }
 .channel-playlist-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.channel-video-sentinel { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:12px; margin:24px 0; color:var(--muted); }
+.channel-video-sentinel button { padding:8px 14px; border:1px solid var(--line); border-radius:8px; color:var(--ink); background:var(--surface); cursor:pointer; }
 .channel-playlist-create { display: inline-block; margin-bottom: 16px; color: #1769aa; font-weight: 700; text-decoration: none; }
 .channel-playlist-card { min-width: 0; overflow: hidden; color: inherit; background: var(--surface, #fff); border: 1px solid var(--line, #e5e7eb); border-radius: 14px; text-decoration: none; transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
 .channel-playlist-card:hover { transform: translateY(-3px); border-color: var(--primary-light, #ff9bb6); box-shadow: var(--shadow-card, 0 8px 22px rgba(17, 24, 39, .12)); }

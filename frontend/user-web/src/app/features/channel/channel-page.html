@@ -194,15 +194,13 @@
           </div>
           <p role="status">{{ videoTotal() }} {{ 'channel.videos' | translate }}</p>
         }
-        @if (videoResultsError()) { <p role="alert">{{ 'channel.videosLoadError' | translate }} <button type="button" (click)="loadVideos()">{{ 'common.retry' | translate }}</button></p> }
-        @if (videoResultsLoading()) { <p aria-busy="true">{{ 'library.loading' | translate }}</p> }
-        @else if (tabVideos().length) {
+        @if (tabVideos().length) {
           <div class="channel-video-grid">
             @for (video of tabVideos(); track video.videoId) {
               <ng-container [ngTemplateOutlet]="videoCard" [ngTemplateOutletContext]="{ $implicit: video }" />
             }
           </div>
-        } @else if (!videoResultsError()) {
+        } @else if (!videoResultsLoading() && !videoResultsError()) {
           <div class="empty-videos-box">
             <div class="box-icon">
               <img src="/assets/icons/my_video.webp" class="empty-state-img" alt="" />
@@ -211,12 +209,12 @@
             <p>{{ 'channel.noVideosDesc' | translate }}</p>
           </div>
         }
-        @if (activeTab() === 'videos' && videoPageCount() > 1) {
-          <nav class="collection-pagination" [attr.aria-label]="'library.pagination' | translate">
-            <button type="button" (click)="changeVideoPage(videoPage() - 1)" [disabled]="videoPage() === 1 || videoResultsLoading()">{{ 'library.previous' | translate }}</button>
-            <span>{{ videoPage() }} / {{ videoPageCount() }}</span>
-            <button type="button" (click)="changeVideoPage(videoPage() + 1)" [disabled]="videoPage() >= videoPageCount() || videoResultsLoading()">{{ 'library.next' | translate }}</button>
-          </nav>
+        @if (hasMoreTabVideos() || videoResultsLoading() || videoResultsError()) {
+          <div class="channel-video-sentinel" [appInfiniteScroll]="hasMoreTabVideos() && !videoResultsLoading() && !videoResultsError()" (reached)="loadMoreTabVideos()" aria-live="polite">
+            @if (videoResultsLoading()) { <span>{{ 'home.loadingMore' | translate }}</span> }
+            @else if (videoResultsError()) { <span role="alert">{{ 'channel.videosLoadError' | translate }}</span><button type="button" (click)="loadMoreTabVideos()">{{ 'common.retry' | translate }}</button> }
+            @else { <button type="button" (click)="loadMoreTabVideos()">{{ 'common.continue' | translate }}</button> }
+          </div>
         }
       }
 

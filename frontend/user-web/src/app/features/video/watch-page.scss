@@ -1513,6 +1513,8 @@
   gap: 12px;
 }
 
+.recommendation-sentinel { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:10px; margin:18px 0; color:var(--text-muted); }
+
 .recommendation-card {
   position: relative;
   display: grid;

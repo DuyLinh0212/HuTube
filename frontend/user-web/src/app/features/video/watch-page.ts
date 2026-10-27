@@ -6,7 +6,7 @@ import { FeedbackService } from '@dalitu/ui/feedback.service';
 import { Component, DestroyRef, ElementRef, HostListener, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { catchError, finalize, map, of, Subject, switchMap, takeUntil, throwError } from 'rxjs';
+import { finalize, Subject, switchMap, takeUntil } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { LoginPromptService } from '../../core/login-prompt.service';
 import { RequireLoginDirective } from '../../shared/login-prompt/require-login.directive';
@@ -24,10 +24,11 @@ import { PictureInPictureService } from '../../core/picture-in-picture.service';
 import { PlayerPreferencesService } from '../../core/player-preferences.service';
 import { ReportModalComponent } from '../../shared/report-modal/report-modal.component';
 import { VideoPlaylistMenuComponent } from '../../shared/video-playlist-menu/video-playlist-menu.component';
+import { InfiniteScrollDirective } from '../../shared/infinite-scroll.directive';
 
 @Component({
   selector: 'app-watch-page',
-  imports: [NgTemplateOutlet, ResultNoticeComponent, RequireLoginDirective, VideoDescriptionComponent, LocaleDatePipe, CompactLikeCountPipe, FormsModule, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
+  imports: [NgTemplateOutlet, ResultNoticeComponent, RequireLoginDirective, VideoDescriptionComponent, LocaleDatePipe, CompactLikeCountPipe, FormsModule, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent, InfiniteScrollDirective],
   templateUrl: './watch-page.html',
   styleUrl: './watch-page.scss'
 })
@@ -58,6 +59,8 @@ export class WatchPage {
   readonly relatedVideos = signal<VideoCard[]>([]);
   readonly recommendationsLoading = signal(false);
   readonly recommendationsError = signal(false);
+  readonly recommendationsMoreError = signal(false);
+  readonly recommendationsHasMore = signal(false);
   readonly channel = signal<ChannelDetail | null>(null);
   readonly comments = signal<CommentItem[]>([]);
   readonly commentSort = signal<'newest' | 'top'>('newest');
@@ -137,6 +140,9 @@ export class WatchPage {
   private readonly videoChanged = new Subject<void>();
   private readonly commentsChanged = new Subject<void>();
   private readonly recommendationsChanged = new Subject<void>();
+  private recommendationVersion = 0;
+  private recommendationNextPage = 1;
+  private recommendationSource: 'feed' | 'channel' | 'tag' | 'category' = 'feed';
   private playlistId: string | null = null;
   private videoId = '';
   private lastSaved = 0;
@@ -199,6 +205,7 @@ export class WatchPage {
   }
 
   private resetPlayerState() {
+    this.recommendationVersion++;
     this.videoChanged.next();
     this.clearPlayerTapTimer();
     this.clearSeekFeedbackTimer();
@@ -208,6 +215,10 @@ export class WatchPage {
     this.repliesLoading.set({});
     this.resetReplyState();
     this.relatedVideos.set([]);
+    this.recommendationsHasMore.set(false);
+    this.recommendationsLoading.set(false);
+    this.recommendationsError.set(false);
+    this.recommendationsMoreError.set(false);
     this.channel.set(null);
     this.loading.set(true);
     this.error.set('');
@@ -1190,50 +1201,77 @@ export class WatchPage {
   }
 
   private loadRecommendations() {
+    this.recommendationVersion++;
     this.recommendationsChanged.next();
     this.relatedVideos.set([]);
-    this.recommendationsLoading.set(true);
+    this.recommendationsLoading.set(false);
     this.recommendationsError.set(false);
+    this.recommendationsMoreError.set(false);
     const filter = this.recommendationFilter();
     const current = this.video();
-    const unique = (items: VideoCard[]) => [...new Map(items
-      .filter(item => item.videoId !== this.videoId)
-      .map(item => [item.videoId, item])).values()].slice(0, 10);
-    // Create only the selected request: channel recommendations must stay in that channel.
-    let videos;
+    this.recommendationNextPage = 1;
     if (filter === 'channel' && current) {
-      videos = this.content.search({
-        channelId: current.channelId,
-        sort: 'newest', page: 1, pageSize: 20
-      }).pipe(map(value => unique(value.items ?? [])));
+      this.recommendationSource = 'channel';
     } else if (filter === 'related' && current && (current.categoryId || current.tags?.length)) {
-      const tag = current.tags && current.tags.length > 0 ? current.tags[0] : undefined;
-      const options = {
-        categoryId: current.categoryId ?? undefined,
-        tag,
-        sort: 'popular', page: 1, pageSize: 20
-      };
-      videos = this.content.search(options).pipe(
-        map(value => unique(value.items ?? [])),
-        switchMap(tagged => {
-          if (!tag || !current.categoryId || tagged.length >= 10) return of(tagged);
-          // A rare first tag may match only the current video. Fill from the same
-          // category, keeping the stronger tag matches first and removing duplicates.
-          return this.content.search({ ...options, tag: undefined }).pipe(
-            map(value => unique([...tagged, ...(value.items ?? [])])),
-            catchError(error => tagged.length ? of(tagged) : throwError(() => error))
-          );
-        })
-      );
+      this.recommendationSource = current.tags?.length ? 'tag' : 'category';
     } else {
-      videos = this.content.feed('home', 1, 20).pipe(map(value => unique(value.items ?? [])));
+      this.recommendationSource = 'feed';
     }
+    this.recommendationsHasMore.set(true);
+    this.loadMoreRecommendations();
+  }
+
+  loadMoreRecommendations() {
+    const current = this.video();
+    if (!current || !this.recommendationsHasMore() || this.recommendationsLoading()) return;
+    const version = this.recommendationVersion;
+    const source = this.recommendationSource;
+    const page = this.recommendationNextPage;
+    const pageSize = 20;
+    this.recommendationsLoading.set(true);
+    this.recommendationsError.set(false);
+    this.recommendationsMoreError.set(false);
+    let fillCategory = false;
+    const videos = source === 'channel'
+      ? this.content.search({ channelId: current.channelId, sort: 'newest', page, pageSize })
+      : source === 'tag' || source === 'category'
+        ? this.content.search({ categoryId: current.categoryId ?? undefined,
+          tag: source === 'tag' ? current.tags?.[0] : undefined, sort: 'popular', page, pageSize })
+        : this.content.feed('home', page, pageSize);
     videos.pipe(
       takeUntil(this.recommendationsChanged), takeUntil(this.videoChanged),
-      takeUntilDestroyed(this.destroyRef), finalize(() => this.recommendationsLoading.set(false))
+      takeUntilDestroyed(this.destroyRef), finalize(() => {
+        if (version !== this.recommendationVersion) return;
+        this.recommendationsLoading.set(false);
+        if (fillCategory) this.loadMoreRecommendations();
+      })
     ).subscribe({
-      next: value => this.relatedVideos.set(value),
-      error: () => this.recommendationsError.set(true)
+      next: value => {
+        if (version !== this.recommendationVersion) return;
+        const combined = new Map(this.relatedVideos().map(item => [item.videoId, item]));
+        for (const item of value.items ?? []) {
+          if (item.videoId !== this.videoId && !combined.has(item.videoId)) combined.set(item.videoId, item);
+        }
+        this.relatedVideos.set([...combined.values()]);
+        const hasMore = !!value.items?.length && page * pageSize < value.total;
+        if (hasMore) {
+          this.recommendationNextPage = page + 1;
+          this.recommendationsHasMore.set(true);
+        } else if (source === 'tag' && current.categoryId) {
+          this.recommendationSource = 'category';
+          this.recommendationNextPage = 1;
+          this.recommendationsHasMore.set(true);
+          // Fill a sparse tag result promptly, then continue through the category on scroll.
+          fillCategory = this.relatedVideos().length < 10;
+        } else {
+          this.recommendationsHasMore.set(false);
+        }
+      },
+      error: () => {
+        if (version !== this.recommendationVersion) return;
+        if (this.relatedVideos().length) this.recommendationsMoreError.set(true);
+        else this.recommendationsError.set(true);
+      }
     });
   }
 

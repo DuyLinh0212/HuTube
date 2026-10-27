@@ -107,22 +107,28 @@ def run(suite,config,actors):
 
         guest=suite.actor('collection-channel-guest','user','guest');guest['api_url']=config['api_url'];gp=guest['page']
         def channel(entry):
+            expected=[];number=1
+            while True:
+                batch=suite.api(guest,'get','/videos/search',params={'channelId':cid,'sort':'newest','page':number,'pageSize':20}).json()
+                expected.extend(item['videoId'] for item in batch['items'])
+                if len(expected)>=batch['total'] or not batch['items']:break
+                number+=1
+            assert set(videos[:51]).issubset(expected) and videos[-1] not in expected
             suite.go(guest,'/channel/'+handle+'?tab=videos','app-channel-page','/videos/search')
-            result=suite.response(guest,'/videos/search',lambda:gp.locator('#channel-video-query').fill(tag),params={'q':tag,'channelId':cid}).json()
-            assert result['total']==51 and result['pageSize']==20;first=[x['videoId'] for x in result['items']]
-            exact_cards(gp,'.channel-video-card',first)
-            page2=suite.response(guest,'/videos/search',lambda:gp.locator('.collection-pagination button').last.click(),params={'page':'2'}).json()
-            exact_cards(gp,'.channel-video-card',[x['videoId'] for x in page2['items']]);assert not set(first)&{x['videoId'] for x in page2['items']}
-            changed=suite.response(guest,'/videos/search',lambda:gp.locator('#channel-video-sort').select_option('views'),params={'sort':'views','page':'1'}).json();assert changed['total']==51
-            wide=suite.response(guest,'/videos/search',lambda:gp.locator('#channel-video-page-size').select_option(label='50'),params={'pageSize':'50'}).json();assert len(wide['items'])==50
-            tail=suite.response(guest,'/videos/search',lambda:gp.locator('.collection-pagination button').last.click(),params={'page':'2','pageSize':'50'}).json();assert len(tail['items'])==1
-            exact_cards(gp,'.channel-video-card',[tail['items'][0]['videoId']]);gp.reload();expect(gp.locator('.channel-video-card')).to_have_count(1)
-            expect(gp.locator('#channel-video-query')).to_have_value(tag);expect(gp.locator('#channel-video-sort')).to_have_value('views')
+            gp.wait_for_function('()=>document.querySelectorAll(".channel-video-thumb").length>0')
+            while gp.locator('.channel-video-thumb').count()<len(expected):
+                before=gp.locator('.channel-video-thumb').count()
+                gp.evaluate('window.scrollTo(0,document.documentElement.scrollHeight)')
+                gp.wait_for_function('(before)=>document.querySelectorAll(".channel-video-thumb").length>before',arg=before)
+            exact_cards(gp,'.channel-video-thumb',expected)
+            changed=suite.response(guest,'/videos/search',lambda:gp.locator('.channel-video-sort button').nth(2).click(),params={'sort':'views','page':'1'}).json()
+            view_ids=[item['videoId'] for item in changed['items']]
+            gp.wait_for_function('(ids)=>JSON.stringify([...document.querySelectorAll(".channel-video-thumb")].slice(0,ids.length).map(a=>a.pathname.split("/").pop()))===JSON.stringify(ids)',arg=view_ids)
+            gp.reload();expect(gp.locator('.channel-video-sort button').nth(2)).to_have_attribute('aria-pressed','true')
             suite.api(guest,'get','/videos/'+videos[-1],expected=(403,404))
-            assert videos[-1] not in ids(gp,'.channel-video-card')
-            gp.locator('#channel-video-query').fill('NO_MATCH_'+tag);expect(gp.locator('.channel-video-card')).to_have_count(0)
-            entry['resource_ids']=[cid,*videos];entry['steps']=['Guest uses actual channel-local search and all server filters retain channelId','Exact 20-row first/second pages; sorting resets to page one','Page size 50 then next shows actual fifty-first video, proving no fixed fifty-row truncation','Reload preserves query/sort/page; private fixture is denied by API and absent from cards','Unmatched query renders a true empty channel result']
-        case(suite,guest,'CHANNEL-PUBLIC-SEARCH-SORT-CONTRACT','U-CHANNEL.03','Channel video query and pagination expose every eligible public result',channel,'channel')
+            assert videos[-1] not in ids(gp,'.channel-video-thumb')
+            entry['resource_ids']=[cid,*videos];entry['steps']=['Guest scrolls through all public channel video pages','Displayed IDs match the full ordered API catalogue with no fixed fifty-video limit','Changing sort reloads the first page and persists on refresh','Private fixture is denied by API and absent from cards']
+        case(suite,guest,'CHANNEL-PUBLIC-SEARCH-SORT-CONTRACT','U-CHANNEL.03','Channel infinite scroll exposes every eligible public video',channel,'channel')
 
         def download(entry):
             plan.update(suite.api(admin,'post','/admin/plans',data={'code':'qc_download_'+tag[9:15],'name':'QC downloads '+tag,'price':0,'durationDays':30,'storageLimit':1024**3,'maxUploadSize':20*1024**2,'maxVideoDuration':60,'maxVideoQuality':'720p','maxDownloadQuality':'720p','maxMembers':1,'features':'{"download":true,"pip":false,"background_play":false}','isDefaultForNewUsers':False},expected=201).json())

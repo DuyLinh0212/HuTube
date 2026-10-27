@@ -192,6 +192,12 @@ public sealed class SearchAndFilterIntegrationTests(AuthApiFactory factory) : IC
 
         var v1 = await CreateCustomPublishedVideoAsync(client, channelId, $"Paging {uniqueMarker} A", "Mô tả", 100, []);
         var v2 = await CreateCustomPublishedVideoAsync(client, channelId, $"Paging {uniqueMarker} B", "Mô tả", 120, []);
+        await using (var db = factory.CreateDb())
+        {
+            (await db.Videos.SingleAsync(x => x.VideoId == v1.VideoId)).PublishedAt = DateTimeOffset.UtcNow.AddDays(-2);
+            (await db.Videos.SingleAsync(x => x.VideoId == v2.VideoId)).PublishedAt = DateTimeOffset.UtcNow.AddDays(-1);
+            await db.SaveChangesAsync();
+        }
 
         var anonymous = factory.CreateClient();
 
@@ -204,6 +210,7 @@ public sealed class SearchAndFilterIntegrationTests(AuthApiFactory factory) : IC
         Assert.Equal(1, page1.Page);
         Assert.Equal(1, page1.PageSize);
         Assert.True(page1.Total >= 2);
+        Assert.Equal(v2.VideoId, page1.Items[0].VideoId);
 
         // Page 2 with pageSize 1
         var page2 = await anonymous.GetFromJsonAsync<PageResult<VideoCardResponse>>(
@@ -212,6 +219,26 @@ public sealed class SearchAndFilterIntegrationTests(AuthApiFactory factory) : IC
         Assert.NotNull(page2);
         Assert.Single(page2.Items);
         Assert.NotEqual(page1.Items[0].VideoId, page2.Items[0].VideoId);
+        var oldest = await anonymous.GetFromJsonAsync<PageResult<VideoCardResponse>>(
+            $"/api/v1/videos/search?q={uniqueMarker}&page=1&pageSize=1&sort=oldest", JsonOptions);
+        Assert.Equal(v1.VideoId, Assert.Single(oldest!.Items).VideoId);
+
+        // Equal timestamps and view counts must still produce stable, distinct pages.
+        await using (var db = factory.CreateDb())
+        {
+            var sameTime = DateTimeOffset.UtcNow.AddDays(-1);
+            (await db.Videos.SingleAsync(x => x.VideoId == v1.VideoId)).PublishedAt = sameTime;
+            (await db.Videos.SingleAsync(x => x.VideoId == v2.VideoId)).PublishedAt = sameTime;
+            await db.SaveChangesAsync();
+        }
+        foreach (var sort in new[] { "newest", "oldest", "views" })
+        {
+            var first = await anonymous.GetFromJsonAsync<PageResult<VideoCardResponse>>($"/api/v1/videos/search?q={uniqueMarker}&page=1&pageSize=1&sort={sort}", JsonOptions);
+            var second = await anonymous.GetFromJsonAsync<PageResult<VideoCardResponse>>($"/api/v1/videos/search?q={uniqueMarker}&page=2&pageSize=1&sort={sort}", JsonOptions);
+            var firstAgain = await anonymous.GetFromJsonAsync<PageResult<VideoCardResponse>>($"/api/v1/videos/search?q={uniqueMarker}&page=1&pageSize=1&sort={sort}", JsonOptions);
+            Assert.NotEqual(Assert.Single(first!.Items).VideoId, Assert.Single(second!.Items).VideoId);
+            Assert.Equal(first.Items[0].VideoId, Assert.Single(firstAgain!.Items).VideoId);
+        }
     }
 
     private async Task<(HttpClient Client, Guid UserId, Guid ChannelId)> CreateUserAndChannelAsync(string prefix)

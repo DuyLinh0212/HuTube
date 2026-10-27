@@ -19,6 +19,7 @@ import { PlaylistItem, PlaylistService, PlaylistSummary } from '../../core/playl
 import { NetworkStatusService } from '../../core/network/network-status.service';
 import { ReportModalComponent } from '../../shared/report-modal/report-modal.component';
 import { VideoPlaylistMenuComponent } from '../../shared/video-playlist-menu/video-playlist-menu.component';
+import { InfiniteScrollDirective } from '../../shared/infinite-scroll.directive';
 
 export interface ChannelLink {
   platform?: 'facebook' | 'instagram' | 'tiktok' | 'x' | 'other';
@@ -30,7 +31,7 @@ type ChannelTab = 'home' | 'videos' | 'playlists';
 
 @Component({
   selector: 'app-channel-page',
-  imports: [ResultNoticeComponent, RequireLoginDirective, NgTemplateOutlet, LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent],
+  imports: [ResultNoticeComponent, RequireLoginDirective, NgTemplateOutlet, LocaleDatePipe, LocaleNumberPipe, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent, InfiniteScrollDirective],
   templateUrl: './channel-page.html',
   styleUrl: './channel-page.scss'
 })
@@ -66,13 +67,15 @@ export class ChannelPage {
   readonly playlistsError = signal(false);
   readonly featuredDescription = signal('');
   readonly videoSort = signal('newest');
-  readonly videoPage = signal(1);
+  readonly videoPage = signal(0);
   readonly videoPageSize = 20;
-  readonly videoPageCount = computed(() => Math.max(1, Math.ceil(this.videoTotal() / this.videoPageSize)));
+  readonly hasMoreTabVideos = computed(() => this.videoPage() * this.videoPageSize < this.videoTotal());
   readonly videoResults = signal<VideoCard[]>([]);
   readonly videoResultsLoading = signal(false);
   readonly videoResultsError = signal(false);
   private videoRequestVersion = 0;
+  private videoResultsRequest?: Subscription;
+  private videoQueryKey = '';
   readonly videoTotal = signal(0);
   readonly loadingMore = signal(false);
   readonly loadMoreError = signal(false);
@@ -109,11 +112,11 @@ export class ChannelPage {
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe(params => {
       const sort = params.get('sort') ?? '';
       this.videoSort.set(['newest', 'oldest', 'views'].includes(sort) ? sort : 'newest');
-      const page = Number(params.get('page'));
-      this.videoPage.set(Number.isSafeInteger(page) && page > 0 ? page : 1);
       const tab = params.get('tab');
       if (tab === 'home' || tab === 'videos' || tab === 'playlists') this.activeTab.set(tab);
-      if (this.channel() && this.activeTab() === 'videos') this.loadVideos();
+      const channel = this.channel();
+      if (channel && !this.loading() && this.activeTab() === 'videos'
+        && this.videoQueryKey !== `${channel.channelId}:${this.videoSort()}`) this.loadVideos();
     });
 
     effect(() => {
@@ -182,8 +185,14 @@ export class ChannelPage {
   }
 
   loadChannel(handle: string) {
+    this.videoRequestVersion++;
     this.channelRequests.unsubscribe();
     this.channelRequests = new Subscription();
+    this.videoQueryKey = '';
+    this.videoResults.set([]);
+    this.videoPage.set(0);
+    this.videoResultsLoading.set(false);
+    this.videoResultsError.set(false);
     this.loading.set(true);
     this.error.set('');
     this.subscriptionMessage.set('');
@@ -255,26 +264,46 @@ export class ChannelPage {
   loadVideos() {
     const channel = this.channel();
     if (!channel) return;
-    const version = ++this.videoRequestVersion;
-    this.videoResultsLoading.set(true); this.videoResultsError.set(false);
-    this.channelRequests.add(this.contentService.search({ channelId: channel.channelId, sort: this.videoSort(),
-      page: this.videoPage(), pageSize: this.videoPageSize }).pipe(finalize(() => {
+    this.videoRequestVersion++;
+    this.videoResultsRequest?.unsubscribe();
+    this.videoQueryKey = `${channel.channelId}:${this.videoSort()}`;
+    this.videoResults.set([]);
+    this.videoPage.set(0);
+    this.videoTotal.set(0);
+    this.videoResultsLoading.set(false);
+    this.videoResultsError.set(false);
+    this.loadMoreTabVideos();
+  }
+
+  loadMoreTabVideos() {
+    const channel = this.channel();
+    if (!channel || this.videoResultsLoading() || (this.videoPage() > 0 && !this.hasMoreTabVideos())) return;
+    const version = this.videoRequestVersion;
+    const page = this.videoPage() + 1;
+    this.videoResultsLoading.set(true);
+    this.videoResultsError.set(false);
+    const request = this.contentService.search({ channelId: channel.channelId, sort: this.videoSort(), page,
+      pageSize: this.videoPageSize }).pipe(finalize(() => {
         if (version === this.videoRequestVersion) this.videoResultsLoading.set(false);
       })).subscribe({
-        next: result => { if (version === this.videoRequestVersion) { this.videoResults.set(result.items); this.videoTotal.set(result.total); } },
-        error: () => { if (version === this.videoRequestVersion) { this.videoResults.set([]); this.videoTotal.set(0); this.videoResultsError.set(true); } }
-      }));
+        next: result => {
+          if (version !== this.videoRequestVersion) return;
+          const combined = new Map(this.videoResults().map(video => [video.videoId, video]));
+          for (const video of result.items ?? []) if (!combined.has(video.videoId)) combined.set(video.videoId, video);
+          this.videoResults.set([...combined.values()]);
+          this.videoPage.set(page);
+          this.videoTotal.set(result.items?.length ? result.total : (page - 1) * this.videoPageSize);
+        },
+        error: () => { if (version === this.videoRequestVersion) this.videoResultsError.set(true); }
+      });
+    this.videoResultsRequest = request;
+    this.channelRequests.add(request);
   }
 
   setVideoSort(sort: 'newest' | 'oldest' | 'views') {
     this.videoSort.set(sort);
     void this.router.navigate([], { relativeTo: this.route, queryParamsHandling: 'merge', queryParams: {
-      tab: 'videos', q: null, sort, page: 1, pageSize: null } });
-  }
-
-  changeVideoPage(page: number) {
-    void this.router.navigate([], { relativeTo: this.route, queryParamsHandling: 'merge',
-      queryParams: { tab: 'videos', page: Math.max(1, Math.min(page, this.videoPageCount())) } });
+      tab: 'videos', q: null, sort, page: null, pageSize: null } });
   }
 
   private loadPlaylistPreviews(playlists: PlaylistSummary[]) {
@@ -321,7 +350,7 @@ export class ChannelPage {
   setTab(tab: ChannelTab) {
     this.activeTab.set(tab);
     this.host.nativeElement.querySelector('.channel-tabs-bar')?.scrollIntoView({ block: 'nearest' });
-    void this.router.navigate([], { relativeTo: this.route, queryParamsHandling: 'merge', queryParams: { tab, sort: this.videoSort() } });
+    void this.router.navigate([], { relativeTo: this.route, queryParamsHandling: 'merge', queryParams: { tab, sort: this.videoSort(), page: null } });
   }
 
   showAllVideos(sort: 'newest' | 'views') {

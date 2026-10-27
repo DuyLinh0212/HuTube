@@ -350,7 +350,7 @@ public sealed class ContentService(
 
                         var fallbackRowsQuery = FeedRows(fallbackVideosQuery, isPromoted: false);
                         fallbackRowsQuery = fallbackRowsQuery
-                            .OrderByDescending(row => row.Views ?? 0L).ThenByDescending(row => row.PublishedAt);
+                            .OrderByDescending(row => row.Views ?? 0L).ThenByDescending(row => row.PublishedAt).ThenBy(row => row.VideoId);
                         var fallbackRows = await fallbackRowsQuery
                             .Skip(fallbackSkip).Take(pageSize - personalizedPageRows.Count).ToListAsync(ct);
                         personalizedPageRows.AddRange(fallbackRows);
@@ -402,10 +402,10 @@ public sealed class ContentService(
         rows = (feed.ToLowerInvariant(), sort?.ToLowerInvariant()) switch
         {
             ("home", "random") => rows.OrderBy(_ => EF.Functions.Random()),
-            ("home", _) => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt),
-            (_, "popular") => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt),
-            (_, "trending") => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt),
-            _ => rows.OrderByDescending(x => x.PublishedAt)
+            ("home", _) => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt).ThenBy(x => x.VideoId),
+            (_, "popular") => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt).ThenBy(x => x.VideoId),
+            (_, "trending") => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt).ThenBy(x => x.VideoId),
+            _ => rows.OrderByDescending(x => x.PublishedAt).ThenBy(x => x.VideoId)
         };
         if (promotedVideoCount > 0)
         {
@@ -653,8 +653,9 @@ public sealed class ContentService(
         var sort = search.Sort?.Trim().ToLowerInvariant() ?? "relevance";
         rows = sort switch
         {
-            "newest" => rows.OrderByDescending(x => x.PublishedAt),
-            "views" or "popular" => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt),
+            "newest" => rows.OrderByDescending(x => x.PublishedAt).ThenBy(x => x.VideoId),
+            "oldest" => rows.OrderBy(x => x.PublishedAt).ThenBy(x => x.VideoId),
+            "views" or "popular" => rows.OrderByDescending(x => x.Views ?? 0L).ThenByDescending(x => x.PublishedAt).ThenBy(x => x.VideoId),
             "engagement" => rows.OrderByDescending(x => (x.Likes ?? 0L) + (x.Comments ?? 0L)).ThenByDescending(x => x.Views ?? 0L),
             "random" => rows.OrderBy(_ => EF.Functions.Random()),
             _ when !string.IsNullOrWhiteSpace(term) =>

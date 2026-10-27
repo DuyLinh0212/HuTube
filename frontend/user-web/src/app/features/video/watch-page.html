@@ -138,7 +138,7 @@
 
         <header class="video-header">
           <h1>{{ item.title }}</h1>
-          <p class="video-meta"><span>{{ countLabel('watch.views', item.stats.views) }}</span><span aria-hidden="true">·</span><span>{{ item.createdAt | localeDate:'d MMM y' }}</span><span class="status-chip">{{ visibilityLabel(item.visibility) }}</span></p>
+          <p class="video-meta"><span>{{ countLabel('watch.views', item.stats.views) }}</span><span aria-hidden="true">·</span><span>{{ item.createdAt | localeDate:'d MMM y' }}</span>@if (item.visibility === 'private' || item.visibility === 'unlisted') { <span class="status-chip">{{ visibilityLabel(item.visibility) }}</span> }</p>
         </header>
 
         <div class="video-actions-anchor">
@@ -351,11 +351,7 @@
           <button type="button" role="tab" [attr.aria-selected]="recommendationFilter() === 'channel'" [class.is-active]="recommendationFilter() === 'channel'" (click)="setRecommendationFilter('channel')">{{ 'watch.sameChannel' | translate }}</button>
         </div>
         <div class="recommendations-header"><div><h2>{{ 'watch.recommendedTitle' | translate }}</h2><p>{{ 'watch.recommendedDesc' | translate }}</p></div><button type="button" class="autoplay-toggle" [class.is-on]="autoplay()" [attr.aria-pressed]="autoplay()" (click)="toggleAutoplay()"><span class="autoplay-toggle__dot"></span><span>{{ 'watch.autoplay' | translate }}</span></button></div>
-        @if (recommendationsLoading()) {
-          <p role="status">{{ 'common.loading' | translate }}</p>
-        } @else if (recommendationsError()) {
-          <div role="alert"><p>{{ 'home.error' | translate }}</p><button type="button" class="secondary-button" (click)="setRecommendationFilter(recommendationFilter())">{{ 'common.retry' | translate }}</button></div>
-        } @else if (visibleRelatedVideos().length) {
+        @if (visibleRelatedVideos().length) {
           <div class="recommendation-list">
             @for (recommended of visibleRelatedVideos(); track recommended.videoId) {
               <a class="recommendation-card" [routerLink]="['/watch', recommended.videoId]">
@@ -364,8 +360,15 @@
               </a>
             }
           </div>
-        } @else {
+        } @else if (!recommendationsLoading() && !recommendationsError() && !recommendationsHasMore()) {
           <div class="recommendations-empty"><span aria-hidden="true">◌</span><p>{{ 'watch.noRecommended' | translate }}</p></div>
+        }
+        @if (recommendationsHasMore() || recommendationsLoading() || recommendationsError() || recommendationsMoreError()) {
+          <div class="recommendation-sentinel" [appInfiniteScroll]="recommendationsHasMore() && !recommendationsLoading() && !recommendationsError() && !recommendationsMoreError()" (reached)="loadMoreRecommendations()" aria-live="polite">
+            @if (recommendationsLoading()) { <span>{{ 'home.loadingMore' | translate }}</span> }
+            @else if (recommendationsError() || recommendationsMoreError()) { <div role="alert"><p>{{ 'home.error' | translate }}</p><button type="button" class="secondary-button" (click)="loadMoreRecommendations()">{{ 'common.retry' | translate }}</button></div> }
+            @else { <button type="button" class="secondary-button" (click)="loadMoreRecommendations()">{{ 'common.continue' | translate }}</button> }
+          </div>
         }
       </aside>
     </div>
