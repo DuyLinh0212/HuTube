@@ -93,6 +93,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
   private activeDrag: 'timeline' | 'chapter' | null = null;
   private draggedChapterId: number | null = null;
   private preflightRequestVersion = 0;
+  private autoAdvanceFile?: File;
 
   duration = 0;
   videoWidth = 0;
@@ -191,8 +192,13 @@ export class VideoUploadWizardComponent implements OnDestroy {
       return;
     }
     this.releaseVideoResources();
+    this.preflightRequestVersion++;
     this.qualityLimitPrompt.set('');
     this.selectedFile = file;
+    this.autoAdvanceFile = file;
+    this.duration = 0;
+    this.videoWidth = 0;
+    this.videoHeight = 0;
     this.hasFile.set(true);
     this.uploadError.set('');
     this.preflightError.set('');
@@ -231,7 +237,10 @@ export class VideoUploadWizardComponent implements OnDestroy {
     } catch {
       if (this.selectedFile === file) this.uploadError.set(this.i18n.t('upload.metadataError'));
     } finally {
-      if (this.selectedFile === file) this.isPreparing.set(false);
+      if (this.selectedFile === file) {
+        this.isPreparing.set(false);
+        this.advanceAcceptedFile();
+      }
       video.removeAttribute('src');
       video.load();
     }
@@ -381,6 +390,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
     if (this.videoFileInput) this.videoFileInput.nativeElement.value = '';
     this.releaseVideoResources();
     this.selectedFile = undefined;
+    this.autoAdvanceFile = undefined;
     this.thumbnailFile = undefined;
     this.hasFile.set(false);
     this.isPreparing.set(false);
@@ -422,6 +432,7 @@ export class VideoUploadWizardComponent implements OnDestroy {
           this.preflightError.set(this.i18n.t('upload.qualityLimit.unavailable'));
         }
         this.preflightLoading.set(false);
+        this.advanceAcceptedFile();
       },
       error: error => {
         if (this.selectedFile !== file || requestVersion !== this.preflightRequestVersion) return;
@@ -429,6 +440,15 @@ export class VideoUploadWizardComponent implements OnDestroy {
         this.preflightLoading.set(false);
       }
     });
+  }
+
+  private advanceAcceptedFile() {
+    if (!this.autoAdvanceFile || this.autoAdvanceFile !== this.selectedFile || this.currentStep() !== 1
+      || this.isPreparing() || this.preflightLoading() || this.uploadError() || this.preflightError()
+      || this.qualityLimitPrompt() || !this.preflight()?.allowed) return;
+    // Advance once for this selection; returning to step 1 must remain possible.
+    this.autoAdvanceFile = undefined;
+    this.setStep(2);
   }
 
   acceptQualityReduction() {
@@ -794,7 +814,9 @@ export class VideoUploadWizardComponent implements OnDestroy {
   resetWizard() {
     this.uploadState.reset();
     this.releaseVideoResources();
+    this.preflightRequestVersion++;
     this.selectedFile = undefined;
+    this.autoAdvanceFile = undefined;
     this.thumbnailFile = undefined;
     this.currentStep.set(1);
     this.hasFile.set(false);
@@ -892,5 +914,10 @@ export class VideoUploadWizardComponent implements OnDestroy {
     return this.i18n.t('upload.checkApiError');
   }
 
-  ngOnDestroy() { this.releaseVideoResources(); }
+  ngOnDestroy() {
+    this.preflightRequestVersion++;
+    this.selectedFile = undefined;
+    this.autoAdvanceFile = undefined;
+    this.releaseVideoResources();
+  }
 }
