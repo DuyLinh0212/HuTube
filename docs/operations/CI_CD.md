@@ -2,16 +2,18 @@
 
 ## CI hiện tại
 
-`.github/workflows/ci.yml` chạy khi push `develop`, nhánh feature/fix/ci/test/db hoặc PR vào `develop`; có thể chạy thủ công. Các job độc lập kiểm tra:
+`.github/workflows/ci.yml` chạy khi push `main`, `develop`, nhánh feature/fix/ci/test/db hoặc PR vào `main`/`develop`; có thể chạy thủ công. Các nhóm kiểm tra:
 
 1. .NET 10 restore/build Release, unit test và integration test PostgreSQL 18, publish API artifact.
 2. Node 22 `npm ci`, Karma ChromeHeadless và Angular build cho cả hai web.
 3. Flutter stable `pub get`, `analyze --fatal-infos`, `test` tại `mobile/user-app` và build release APK. Job mobile dùng GitHub Environment `mobile`; có thể override hai biến public `MOBILE_API_BASE_URL` và `GOOGLE_WEB_CLIENT_ID`, mặc định trỏ về API EC2 hiện tại và Google Web client hiện tại.
-4. Sau khi cả ba nhóm pass, build Docker API. Chỉ push image GHCR từ `develop` với tag commit SHA và `develop`; feature/PR chỉ kiểm tra build container.
+4. Recommendation unit tests và bộ E2E cho backend, user web, admin web.
+5. `deployment-checks` kiểm tra điều kiện deploy, danh tính image, cleanup và rollback.
+6. Sau khi các job kiểm tra pass, GitHub Actions build Docker API và Recommendation. Trên `main`, publish cả hai image lên GHCR với tag riêng theo commit và lưu digest vào summary/artifact; feature/PR chỉ kiểm tra build. API vẫn được publish từ `develop`.
 
 CI PostgreSQL là service dùng một lần, tài khoản test có quyền tạo database. Connection string CI chỉ thuộc service tạm thời, không phải credential local hay staging. Test không dùng database ứng dụng. Kết quả TRX và sản phẩm publish được lưu bằng workflow artifacts.
 
-Flutter HTTP smoke yêu cầu `LIVE_API_BASE_URL` và `EMAIL_PICKUP_DIRECTORY`, nên mặc định được skip có lý do trong CI unit/widget và được chạy riêng trên local. Workflow hiện không build APK hoặc chạy kiểm thử thiết bị native. Docker build context là `backend`; các exclusions phải nằm ở `backend/.dockerignore`, file ignore root không áp dụng cho context này.
+Flutter HTTP smoke yêu cầu `LIVE_API_BASE_URL` và `EMAIL_PICKUP_DIRECTORY`, nên mặc định được skip có lý do trong CI unit/widget và được chạy riêng trên local. Workflow build APK release; việc kiểm thử thiết bị native được thực hiện riêng. Docker build context API là `backend`; các exclusions phải nằm ở `backend/.dockerignore`, file ignore root không áp dụng cho context này.
 
 `scripts/test.ps1` cung cấp cùng các kiểm tra build/test cốt lõi trên local; container publish và deploy chỉ thuộc CI. Khi CI không chạy hoặc chưa xong phải báo đúng trạng thái; không coi test local là bằng chứng GitHub Actions đã pass.
 
@@ -23,7 +25,9 @@ Workflow giữ **Run workflow** để chạy kiểm tra thủ công. Cơ chế t
 
 Luồng Render staging đã được gỡ khỏi CI. Workflow không yêu cầu Environment `staging`, deploy hook hoặc URL Render. Khóa SSH và cấu hình runtime của EC2 được giữ ngoài Git.
 
-EC2 build image theo commit đã đạt kiểm tra, chạy migration trước khi thay container, rồi xác nhận health và `/api/v1/system/info.commitSha` trùng commit mới. Xem [EC2_AUTO_DEPLOY.md](EC2_AUTO_DEPLOY.md) để cài đặt, xem log, kiểm tra điều kiện và xử lý rollback; cấu hình ứng dụng tại [EC2_API_RECOMMENDER.md](EC2_API_RECOMMENDER.md).
+Luồng production: **GitHub Actions build/test → publish image GHCR → EC2 tải image đã build → migration → thay container → health/revision checks**. EC2 không build ứng dụng và không có fallback về build local. API dùng tag `<sha>`, Recommendation dùng `recommendation-<sha>` trong package public sẵn có `ghcr.io/duylinh0212/hutube/api`, nên host không cần lưu token GitHub. Sau khi tải, controller xác minh commit, source, service, platform và ghim image bằng digest; migration dùng cùng digest API đã kiểm tra. Nếu tải image hoặc kiểm tra thất bại, bản đang chạy được giữ nguyên. Nếu activation/health thất bại, controller rollback image và cấu hình đã lưu.
+
+Sau deploy, xác nhận health và `/api/v1/system/info.commitSha` trùng commit mới. Xem [EC2_AUTO_DEPLOY.md](EC2_AUTO_DEPLOY.md) để cài đặt, xem log, kiểm tra điều kiện và xử lý rollback; cấu hình ứng dụng tại [EC2_API_RECOMMENDER.md](EC2_API_RECOMMENDER.md).
 
 Web runtime config nằm tại `frontend/<app>/public/config.json`, sau build tại `dist/<app>/browser/config.json`. Đặt `API_BASE_URL=https://<api-host>/api/v1` lúc build hoặc cập nhật config file deploy; không chứa secret. Mobile build dùng `--dart-define=API_BASE_URL=https://<api-host>/api/v1`. Bổ sung allowed origins cho hostname client trước khi smoke cả ba client.
 

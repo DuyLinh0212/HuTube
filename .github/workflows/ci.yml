@@ -337,27 +337,69 @@ jobs:
         shell: bash
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}/api" >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@v3
-        if: github.ref == 'refs/heads/develop' && github.event_name != 'pull_request'
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v6
+        id: api
         with:
           context: backend
-          push: ${{ github.ref == 'refs/heads/develop' && github.event_name != 'pull_request' }}
+          platforms: linux/amd64
+          push: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && github.event_name != 'pull_request' }}
           build-args: HUTUBE_COMMIT_SHA=${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            io.dalitu.service=api
           tags: |
             ${{ steps.image.outputs.name }}:${{ github.sha }}
-            ${{ steps.image.outputs.name }}:develop
+            ${{ steps.image.outputs.name }}:${{ github.ref == 'refs/heads/main' && 'main' || 'develop' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Build Recommendation Service image
         uses: docker/build-push-action@v6
+        id: recommendation
         with:
           context: recommendation-service
-          push: false
+          platforms: linux/amd64
+          push: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
           build-args: HUTUBE_COMMIT_SHA=${{ github.sha }}
-          tags: dalitu-recommendation:ci-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            io.dalitu.service=recommendation
+          # The existing public package lets EC2 pull both services without a PAT.
+          tags: ${{ steps.image.outputs.name }}:recommendation-${{ github.sha }}
           cache-from: type=gha,scope=recommendation
           cache-to: type=gha,mode=max,scope=recommendation
+      - name: Record production image digests
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          IMAGE_REPOSITORY: ${{ steps.image.outputs.name }}
+          COMMIT_SHA: ${{ github.sha }}
+          API_DIGEST: ${{ steps.api.outputs.digest }}
+          RECOMMENDATION_DIGEST: ${{ steps.recommendation.outputs.digest }}
+        run: |
+          python - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          images = {}
+          for service in ('api', 'recommendation'):
+              digest = os.environ[service.upper() + '_DIGEST']
+              if not re.fullmatch(r'sha256:[0-9a-f]{64}', digest):
+                  raise SystemExit('Missing published image digest: ' + service)
+              images[service] = os.environ['IMAGE_REPOSITORY'] + '@' + digest
+          manifest = {'sha': os.environ['COMMIT_SHA'], 'images': images}
+          Path('ec2-images.json').write_text(json.dumps(manifest, indent=2) + '\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write('EC2 production images for ' + manifest['sha'] + '\n\n')
+              for service, image in images.items():
+                  summary.write('- ' + service + ': `' + image + '`\n')
+          PY
+      - uses: actions/upload-artifact@v6
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        with:
+          name: ec2-images-${{ github.sha }}
+          path: ec2-images.json
+          if-no-files-found: error
+          retention-days: 14

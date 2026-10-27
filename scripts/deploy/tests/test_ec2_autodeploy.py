@@ -96,7 +96,7 @@ class RecoveryTests(unittest.TestCase):
         self.snapshot = {"directory": str(Path(directory) / "rollback"),
                          "sha": OLD, "images": {"api": "old-api", "recommendation": "old-rec"}}
         defaults = {"preflight": None, "snapshot": self.snapshot, "update_checkout": None,
-                    "build": ({}, {"api": "new-api", "recommendation": "new-rec"}),
+                    "pull_images": ({}, {"api": "new-api", "recommendation": "new-rec"}),
                     "prepare": None, "tip": SHA, "activate": None,
                     "verify": {"api": "new-api", "recommendation": "new-rec"}, "rollback": None,
                     "eligible": (SHA, 123), "set_default_image_tags": None,
@@ -104,8 +104,8 @@ class RecoveryTests(unittest.TestCase):
         self.mocks = {name: self.stack.enter_context(patch.object(self.deployer, name, return_value=value))
                       for name, value in defaults.items()}
 
-    def test_build_failure_leaves_running_services_untouched(self):
-        self.mocks["build"].side_effect = OSError("simulated build failure")
+    def test_pull_failure_leaves_running_services_untouched(self):
+        self.mocks["pull_images"].side_effect = OSError("simulated registry failure")
         with self.assertRaises(OSError):
             self.deployer.deploy(SHA, 123)
         self.mocks["activate"].assert_not_called()
@@ -136,7 +136,7 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual("activate", checkpoint["pending"]["phase"])
         self.assertEqual(SHA, checkpoint["pending"]["sha"])
 
-    def test_newer_main_during_build_prevents_activation(self):
+    def test_newer_main_during_pull_prevents_activation(self):
         self.mocks["tip"].return_value = "c" * 40
         self.deployer.deploy(SHA, 123)
         self.mocks["activate"].assert_not_called()
@@ -144,7 +144,7 @@ class RecoveryTests(unittest.TestCase):
         self.assertNotIn("failed_sha", self.deployer.state)
         self.assertEqual(self.snapshot, self.deployer.state["baseline_snapshot"])
 
-    def test_changed_ci_or_vercel_checks_during_build_prevent_activation(self):
+    def test_changed_ci_or_vercel_checks_during_pull_prevent_activation(self):
         self.mocks["eligible"].return_value = None
         self.deployer.deploy(SHA, 123)
         self.mocks["activate"].assert_not_called()
@@ -171,9 +171,10 @@ class RecoveryTests(unittest.TestCase):
         self.mocks["rollback"].assert_called_once_with(self.snapshot)
         self.assertEqual(SHA, self.deployer.state["failed_sha"])
 
-    def test_interrupted_build_does_not_restart_services(self):
-        self.deployer.state["pending"] = {"sha": SHA, "phase": "build", "snapshot": self.snapshot}
-        self.deployer.recover_interrupted()
+    def test_interrupted_pull_and_legacy_build_do_not_restart_services(self):
+        for phase in ("pull", "build"):
+            self.deployer.state["pending"] = {"sha": SHA, "phase": phase, "snapshot": self.snapshot}
+            self.deployer.recover_interrupted()
         self.mocks["rollback"].assert_not_called()
         self.assertEqual(SHA, self.deployer.state["failed_sha"])
 
@@ -183,6 +184,93 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(SHA, self.deployer.state["sha"])
         self.assertNotIn("failed_sha", self.deployer.state)
         self.mocks["rollback"].assert_not_called()
+
+
+class ImageDownloadTests(unittest.TestCase):
+    def setUp(self):
+        self.stack = ExitStack()
+        self.addCleanup(self.stack.close)
+        self.stack.enter_context(redirect_stdout(StringIO()))
+        directory = self.stack.enter_context(TemporaryDirectory())
+        self.deployer = Deployer({"repo_dir": directory, "state_dir": directory, "repository": REPO})
+        self.repo = "ghcr.io/" + REPO + "/api"
+        self.digests = {"api": "sha256:" + "1" * 64, "recommendation": "sha256:" + "2" * 64}
+        self.ids = {"api": "sha256:" + "3" * 64, "recommendation": "sha256:" + "4" * 64}
+        self.images = {service: {
+            "Id": self.ids[service], "Os": "linux", "Architecture": "amd64",
+            "RepoDigests": [self.repo + "@" + digest],
+            "Config": {"Labels": {"org.opencontainers.image.revision": SHA,
+                                   "org.opencontainers.image.source": "https://github.com/" + REPO,
+                                   "io.dalitu.service": service}}}
+            for service, digest in self.digests.items()}
+        self.commands = []
+        self.run = self.stack.enter_context(patch.object(self.deployer, "run", side_effect=self.command))
+        self.compose = self.stack.enter_context(patch.object(self.deployer, "compose"))
+
+    def command(self, *args, **_kwargs):
+        self.commands.append(args)
+        if args[:2] == ("docker", "pull"):
+            service = "recommendation" if ":recommendation-" in args[2] else "api"
+            return "Layers downloaded\nDigest: " + self.digests[service] + "\nStatus: Downloaded newer image"
+        if args[:3] == ("docker", "image", "inspect"):
+            # A tag can change after pull; verification must use the returned digest.
+            for service, digest in self.digests.items():
+                if args[3] == self.repo + "@" + digest:
+                    return json.dumps([self.images[service]])
+            self.fail("Inspection used an unverified reference: " + repr(args))
+        self.fail("Production attempted an unexpected operation: " + repr(args))
+
+    def test_downloads_both_services_and_pins_the_pulled_digest(self):
+        env, expected = self.deployer.pull_images(SHA)
+        self.assertEqual(self.ids, expected)
+        self.assertEqual({"DALITU_API_IMAGE": self.repo + "@" + self.digests["api"],
+                          "DALITU_RECOMMENDATION_IMAGE": self.repo + "@" + self.digests["recommendation"]}, env)
+        self.assertEqual([self.repo + ":" + SHA, self.repo + ":recommendation-" + SHA],
+                         [command[2] for command in self.commands if command[1] == "pull"])
+        self.compose.assert_called_once_with("config", "--quiet", env=env)
+
+    def test_wrong_revision_service_source_platform_digest_or_id_is_rejected(self):
+        original = deepcopy(self.images["api"])
+        changes = [("revision", OLD), ("service", "recommendation"), ("source", "https://github.com/other/repo"),
+                   ("Architecture", "arm64"), ("Os", "windows"), ("RepoDigests", []), ("Id", "unknown")]
+        for field, value in changes:
+            with self.subTest(field=field):
+                image = deepcopy(original)
+                label = {"revision": "org.opencontainers.image.revision", "service": "io.dalitu.service",
+                         "source": "org.opencontainers.image.source"}.get(field)
+                if label:
+                    image["Config"]["Labels"][label] = value
+                else:
+                    image[field] = value
+                self.images["api"] = image
+                with self.assertRaisesRegex(ValueError, "does not match"):
+                    self.deployer.pull_images(SHA)
+        self.compose.assert_not_called()
+
+    def test_missing_labels_are_rejected(self):
+        self.images["api"]["Config"]["Labels"] = None
+        with self.assertRaises(ValueError):
+            self.deployer.pull_images(SHA)
+        self.compose.assert_not_called()
+
+    def test_missing_malformed_or_ambiguous_registry_digest_is_rejected(self):
+        for output in ["Already exists", "Digest: sha256:invalid", "Digest: " + self.digests["api"] +
+                       "\nDigest: " + self.digests["recommendation"]]:
+            with self.subTest(output=output), patch.object(self.deployer, "run", return_value=output):
+                with self.assertRaisesRegex(ValueError, "one immutable digest"):
+                    self.deployer.pull_images(SHA)
+        self.compose.assert_not_called()
+
+    def test_missing_second_image_does_not_fall_back_to_build(self):
+        def unavailable(*args, **kwargs):
+            if args[:2] == ("docker", "pull") and ":recommendation-" in args[2]:
+                raise subprocess.CalledProcessError(1, "docker pull")
+            return self.command(*args, **kwargs)
+        self.run.side_effect = unavailable
+        with self.assertRaises(subprocess.SubprocessError):
+            self.deployer.pull_images(SHA)
+        self.compose.assert_not_called()
+        self.assertFalse(any("build" in command for command in self.commands))
 
 
 class StorageCleanupTests(unittest.TestCase):
@@ -254,6 +342,18 @@ class StorageCleanupTests(unittest.TestCase):
             self.add_image("dalitu-api:git-" + marker * 40, "sha256:" + image)
         self.deployer.cleanup_storage()
         self.assertEqual([], self.removed)
+
+    def test_registry_cleanup_preserves_active_rollback_and_other_packages(self):
+        repo = self.deployer.image_repository
+        obsolete = [repo + ":" + "c" * 40, repo + ":recommendation-" + "d" * 40]
+        for tag in obsolete:
+            self.add_image(tag, "sha256:obsolete")
+        self.add_image(repo + ":" + SHA, self.active["api"])
+        self.add_image(repo + ":recommendation-" + OLD, "sha256:rollback-recommendation")
+        self.add_image(repo + ":operator-backup", "sha256:backup")
+        self.add_image("ghcr.io/other/project/api:" + "e" * 40, "sha256:other-package")
+        self.deployer.cleanup_storage()
+        self.assertEqual(sorted(obsolete), self.removed)
 
     def test_missing_rollback_image_prevents_any_removal(self):
         self.inventory = [item for item in self.inventory if item["ID"] != "sha256:rollback-api"]

@@ -77,6 +77,8 @@ class Deployer:
         self.state_path = self.directory / "state.json"
         self.state = json.loads(self.state_path.read_text()) if self.state_path.exists() else {}
         self.api = "https://api.github.com/repos/" + config["repository"]
+        # Reuse the existing public package for both services, with separate tags.
+        self.image_repository = "ghcr.io/" + config["repository"].lower() + "/api"
 
     def run(self, *args, env=None, capture=False, timeout=120):
         environment = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "COMPOSE_PARALLEL_LIMIT": "1"}
@@ -179,7 +181,8 @@ class Deployer:
         obsolete = sorted({item["Repository"] + ":" + item["Tag"] for item in inventory
                            if item["ID"] not in protected and re.fullmatch(
                                r"dalitu-(?:api|recommendation):git-[0-9a-f]{40}"
-                               r"|dalitu-(?:api|recommendation|caddy):rollback-[0-9]+-[0-9a-f]{12}",
+                               r"|dalitu-(?:api|recommendation|caddy):rollback-[0-9]+-[0-9a-f]{12}"
+                               r"|" + re.escape(self.image_repository) + r":(?:recommendation-)?[0-9a-f]{40}",
                                item["Repository"] + ":" + item["Tag"])})
         for tag in obsolete:
             # Never force removal, prune volumes, or remove unrelated images.
@@ -238,18 +241,33 @@ class Deployer:
             raise ValueError("Main advanced before checkout")
         self.git("merge", "--ff-only", sha)
 
-    def build(self, sha):
-        env = {"HUTUBE_COMMIT_SHA": sha, "DALITU_API_IMAGE": "dalitu-api:git-" + sha,
-               "DALITU_RECOMMENDATION_IMAGE": "dalitu-recommendation:git-" + sha}
-        self.compose("config", "--quiet", env=env)
-        # Keep the two builds sequential on the small EC2 host.
+    def pull_images(self, sha):
+        env, expected = {}, {}
+        # Never compile on the production host or fall back to a local build.
         for service in ("api", "recommendation"):
-            log("building", service=service, sha=sha)
-            self.compose("build", service, env=env, timeout=1200)
-        expected = {"api": self.run("docker", "image", "inspect", "--format", "{{.Id}}",
-                                    env["DALITU_API_IMAGE"], capture=True),
-                    "recommendation": self.run("docker", "image", "inspect", "--format", "{{.Id}}",
-                                               env["DALITU_RECOMMENDATION_IMAGE"], capture=True)}
+            tag = self.image_repository + ":" + ("recommendation-" if service == "recommendation" else "") + sha
+            log("pulling", service=service, sha=sha)
+            output = self.run("docker", "pull", tag, capture=True, timeout=600)
+            digests = re.findall(r"^Digest:\s+(sha256:[0-9a-f]{64})\s*$", output, re.MULTILINE)
+            if len(digests) != 1:
+                raise ValueError("Registry pull did not return one immutable digest")
+            reference = self.image_repository + "@" + digests[0]
+            # Inspect the digest from this pull, even if a mutable tag changes.
+            images = json.loads(self.run("docker", "image", "inspect", reference, capture=True))
+            if len(images) != 1:
+                raise ValueError("Expected one downloaded image")
+            image = images[0]
+            labels = image.get("Config", {}).get("Labels") or {}
+            if (reference not in image.get("RepoDigests", [])
+                    or labels.get("org.opencontainers.image.revision") != sha
+                    or labels.get("org.opencontainers.image.source") != "https://github.com/" + self.config["repository"]
+                    or labels.get("io.dalitu.service") != service
+                    or image.get("Os") != "linux" or image.get("Architecture") != "amd64"
+                    or not re.fullmatch(r"sha256:[0-9a-f]{64}", image.get("Id", ""))):
+                raise ValueError("Downloaded image does not match the verified revision and service")
+            env["DALITU_" + service.upper() + "_IMAGE"] = reference
+            expected[service] = image["Id"]
+        self.compose("config", "--quiet", env=env)
         return env, expected
 
     def prepare(self, env, snapshot):
@@ -266,10 +284,10 @@ class Deployer:
             self.compose("up", "-d", "--no-deps", "--wait", "--wait-timeout", "120",
                          "rabbitmq", env=env, timeout=180)
         log("migrating")
-        self.compose("run", "--rm", "--no-deps", "migrate", env=env, timeout=600)
+        self.compose("run", "--rm", "--no-deps", "--pull", "never", "migrate", env=env, timeout=600)
 
     def activate(self, env):
-        self.compose("up", "-d", "--no-deps", "--no-build", "--force-recreate",
+        self.compose("up", "-d", "--no-deps", "--no-build", "--pull", "never", "--force-recreate",
                      "recommendation", "api", "caddy", env=env, timeout=180)
 
     def set_default_image_tags(self, images):
@@ -327,15 +345,15 @@ class Deployer:
         # Keep the active baseline even if Git advances but activation is later
         # deferred. A mutable checkout path may then contain unactivated config.
         self.state["baseline_snapshot"] = snapshot
-        pending = {"sha": sha, "run_id": run_id, "phase": "build", "snapshot": snapshot}
+        pending = {"sha": sha, "run_id": run_id, "phase": "pull", "snapshot": snapshot}
         self.state["pending"] = pending
         self.save()
         try:
             self.update_checkout(sha)
-            env, expected = self.build(sha)
+            env, expected = self.pull_images(sha)
             self.prepare(env, snapshot)
             if self.tip() != sha or self.eligible(retry=True) != (sha, run_id):
-                raise DeploymentDeferred("Main or deployment checks changed during build")
+                raise DeploymentDeferred("Main or deployment checks changed during image preparation")
             pending["phase"] = "activate"
             self.save()
             log("activating", sha=sha, run_id=run_id)

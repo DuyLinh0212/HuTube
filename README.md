@@ -112,14 +112,14 @@ Khi báo cáo hoặc thuyết trình đồ án, bạn thực hiện theo kịch 
 ./scripts/smoke.ps1
 ```
 
-Workflow được cấu hình để build/unit/integration PostgreSQL, test/build hai web và analyze/test Flutter, sau đó publish container lên GHCR từ `develop`. Deploy Render chỉ chạy khi đã cấu hình và chọn thủ công; push GitHub không tự tạo môi trường cloud.
+Workflow kiểm tra backend/PostgreSQL, hai web, Flutter, Recommendation, E2E và deployment recovery trước khi build container. Trên `main`, GitHub Actions publish image API và Recommendation lên GHCR; EC2 chỉ tải image đã xác minh, chạy migration, cập nhật và kiểm tra health sau khi toàn bộ CI cùng hai trạng thái Vercel thành công. Xem [luồng CI/CD](docs/operations/CI_CD.md) và [EC2 auto deploy](docs/operations/EC2_AUTO_DEPLOY.md).
 
 Đã xác minh migration/health/OpenAPI local, luồng auth User Web trên trình duyệt với API thật, 17 test unit/widget Flutter và luồng controller mobile gọi HTTP thật. Kết quả Release/backend, lượt test web cuối, APK native và GitHub Actions được ghi riêng trong [bảng nghiệm thu](docs/operations/S4_SCOPE.md); không suy từ test local thành CI/native đã đạt.
 
 - [Quản trị thuật toán đề xuất](docs/operations/RECOMMENDATIONS.md)
 - [API auth/session](docs/api/S4_AUTH.md)
 - [Local và PostgreSQL](docs/operations/LOCAL_DEVELOPMENT.md)
-- [CI/CD và Render sau này](docs/operations/CI_CD.md)
+- [CI/CD và triển khai EC2](docs/operations/CI_CD.md)
 - [Phạm vi nghiệm thu S4-01/S4-02](docs/operations/S4_SCOPE.md)
 - [Quyết định PostgreSQL/local](docs/decisions/ADR-008-postgresql-and-local-s4.md)
 - [Kiến trúc](docs/architecture/PROJECT_ARCHITECTURE.md), [tech stack](docs/architecture/TECH_STACK.md), [branch/commit convention](docs/conventions/DEVELOPMENT_CONVENTIONS.md)

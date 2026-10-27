@@ -3,11 +3,6 @@ name: hutube-ec2
 services:
   api:
     image: ${DALITU_API_IMAGE:-dalitu-api:local}
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      args:
-        HUTUBE_COMMIT_SHA: ${HUTUBE_COMMIT_SHA:-local}
     env_file:
       - ./.env.ec2-api
     environment:
@@ -57,11 +52,6 @@ services:
 
   migrate:
     image: ${DALITU_API_IMAGE:-dalitu-api:local}
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      args:
-        HUTUBE_COMMIT_SHA: ${HUTUBE_COMMIT_SHA:-local}
     env_file:
       - ./.env.ec2-api
     environment:
@@ -71,11 +61,6 @@ services:
 
   recommendation:
     image: ${DALITU_RECOMMENDATION_IMAGE:-hutube-ec2-recommendation}
-    build:
-      context: ./recommendation-service
-      dockerfile: Dockerfile
-      args:
-        HUTUBE_COMMIT_SHA: ${HUTUBE_COMMIT_SHA:-local}
     env_file:
       - ./recommendation-service/.env.ec2
     environment:
