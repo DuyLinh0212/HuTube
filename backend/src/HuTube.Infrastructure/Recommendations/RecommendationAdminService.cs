@@ -516,15 +516,15 @@ public sealed class RecommendationAdminService(
             throw Error(400, "INVALID_SIMULATION_DELAY", "Độ trễ cần nằm trong khoảng 0 đến 5.000 ms.");
         if (request.Mode is not ("target" or "cluster"))
             throw Error(400, "INVALID_SIMULATION_MODE", "Kịch bản mô phỏng không hợp lệ.");
-        if (request.CommentTemplates is null || request.CommentTemplates.Count > 100
+        if (request.CommentTemplates is null
             || request.CommentTemplates.Any(x => x is null || x.Length is < 3 or > 5000))
-            throw Error(400, "INVALID_SIMULATION_COMMENTS", "Mỗi mẫu bình luận cần từ 3 đến 5.000 ký tự và tối đa 100 mẫu.");
+            throw Error(400, "INVALID_SIMULATION_COMMENTS", "Mỗi mẫu bình luận cần từ 3 đến 5.000 ký tự.");
         var categoryComments = request.CategoryComments ?? [];
         if (categoryComments.Count > 20 || categoryComments.Any(x => x is null || x.CategoryId == Guid.Empty
-                || x.Templates is null || x.Templates.Count > 100
+                || x.Templates is null
                 || x.Templates.Any(text => text is null || text.Trim().Length is < 3 or > 5000))
             || categoryComments.GroupBy(x => x.CategoryId).Any(group => group.Count() > 1))
-            throw Error(400, "INVALID_SIMULATION_COMMENTS", "Mỗi danh mục cần tối đa 100 mẫu bình luận, mỗi mẫu từ 3 đến 5.000 ký tự; tối đa 20 danh mục khác nhau.");
+            throw Error(400, "INVALID_SIMULATION_COMMENTS", "Mỗi mẫu bình luận cần từ 3 đến 5.000 ký tự; tối đa 20 danh mục khác nhau.");
         if (categoryComments.Count > 0)
         {
             var commentCategoryIds = categoryComments.Select(x => x.CategoryId).ToArray();

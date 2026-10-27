@@ -1,5 +1,3 @@
-export const MAX_COMMENT_TEMPLATES = 100;
-
 /** One RFC 4180 column named comment; quoted commas, quotes and newlines are preserved. */
 export function parseCommentCsv(csv: string): string[][] {
   const rows: string[][] = [];
@@ -38,14 +36,13 @@ export function parseCommentCsv(csv: string): string[][] {
 export function mergeCommentTemplates(existing: string[], rows: string[][]) {
   const templates = [...existing];
   const seen = new Set(existing);
-  let added = 0, duplicates = 0, invalid = 0, overflow = 0;
+  let added = 0, duplicates = 0, invalid = 0;
   for (const row of rows) {
     const text = row[0]?.trim() ?? '';
     if (row.length !== 1 || text.length < 3 || text.length > 5000) { invalid++; continue; }
     if (seen.has(text)) { duplicates++; continue; }
     seen.add(text);
-    if (templates.length >= MAX_COMMENT_TEMPLATES) { overflow++; continue; }
     templates.push(text); added++;
   }
-  return { templates, added, duplicates, invalid, overflow };
+  return { templates, added, duplicates, invalid };
 }

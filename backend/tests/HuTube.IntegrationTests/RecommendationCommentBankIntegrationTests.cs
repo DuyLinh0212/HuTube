@@ -75,10 +75,12 @@ public sealed class RecommendationCommentBankIntegrationTests(AuthApiFactory fac
             db.Categories.AddRange(daily, music); db.Channels.Add(channel); await db.SaveChangesAsync();
             db.Videos.AddRange(dailyVideo, musicVideo, uncategorizedVideo); await db.SaveChangesAsync();
         }
+        var musicTemplates = emptyMusicBank ? Array.Empty<string>()
+            : Enumerable.Range(1, 300).Select(i => $"Music template only {i}").ToArray();
         var request = new SimulatorRequest([bot.UserId], [dailyVideo.VideoId, musicVideo.VideoId, uncategorizedVideo.VideoId],
             "target", 3, 0, null, 0, 0, 0, 0, 100, 0, ["Shared bank must never be used"], false,
             CategoryComments: [new(daily.CategoryId, ["Daily template only"]),
-                new(music.CategoryId, emptyMusicBank ? [] : ["Music template only"])]);
+                new(music.CategoryId, musicTemplates)]);
         var legacy = request with { CategoryComments = null };
 
         // Act: mixed-category requests from old clients fail clearly instead of mixing templates.
@@ -97,12 +99,15 @@ public sealed class RecommendationCommentBankIntegrationTests(AuthApiFactory fac
 
         // Assert against real PostgreSQL comments, not just the serialized request.
         Assert.NotNull(job); Assert.Equal("completed", job.Status);
+        var storedRequest = JsonSerializer.Deserialize<SimulatorRequest>(job.PayloadJson,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.Equal(musicTemplates, Assert.Single(storedRequest!.CategoryComments!, bank => bank.CategoryId == music.CategoryId).Templates);
         await using var verify = factory.CreateDb();
         var comments = await verify.Comments.Where(x => x.UserId == bot.UserId).ToListAsync();
         Assert.Equal(emptyMusicBank ? 1 : 2, comments.Count);
         Assert.Equal("Daily template only", Assert.Single(comments, x => x.VideoId == dailyVideo.VideoId).Content);
         if (!emptyMusicBank)
-            Assert.Equal("Music template only", Assert.Single(comments, x => x.VideoId == musicVideo.VideoId).Content);
+            Assert.Contains(Assert.Single(comments, x => x.VideoId == musicVideo.VideoId).Content, musicTemplates);
         else Assert.DoesNotContain(comments, x => x.VideoId == musicVideo.VideoId);
         Assert.DoesNotContain(comments, x => x.VideoId == uncategorizedVideo.VideoId);
         Assert.DoesNotContain(comments, x => x.Content.Contains("Shared bank"));

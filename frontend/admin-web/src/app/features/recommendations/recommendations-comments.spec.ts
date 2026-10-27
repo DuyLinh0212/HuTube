@@ -41,7 +41,7 @@ describe('Category comment bank', () => {
     expect(page.commentBanks()['music']).toEqual(['Music only']);
     expect(JSON.parse(localStorage.getItem(storageKey)!)['daily']).toEqual(page.commentBanks()['daily']);
     expect(page.commentImportMessage()).toContain('thêm 1');
-    expect(page.commentImportMessage()).toContain('1 mẫu trùng, 1 dòng');
+    expect(page.commentImportMessage()).toContain('1 mẫu trùng và 1 dòng');
   });
 
   it('keeps the original target category if the selection changes while reading a file', async () => {
@@ -53,6 +53,20 @@ describe('Category comment bank', () => {
     expect(page.commentBanks()['daily']).toContain('Daily imported');
     expect(page.commentBanks()['music']).toEqual(['Music only']);
     expect(page.commentImportMessage()).toContain('Daily:');
+  });
+
+  it('persists all 300 imported comments alongside the existing ten and allows further additions', async () => {
+    page.commentCategory.set('music');
+    const existing = Array.from({ length: 10 }, (_, i) => `Existing music ${i}`);
+    const imported = Array.from({ length: 300 }, (_, i) => `Imported music ${i}`);
+    page.commentBanks.update(banks => ({ ...banks, music: existing }));
+    await page.importCommentCsv(upload('comment\n' + imported.join('\n')).event);
+    expect(page.commentBanks()['music']).toEqual([...existing, ...imported]);
+    expect(JSON.parse(localStorage.getItem(storageKey)!)['music']).toEqual([...existing, ...imported]);
+    expect(page.commentImportMessage()).toContain('thêm 300 mẫu');
+    page.newCommentTemplate = 'One more music comment'; page.addCommentTemplate();
+    expect(page.commentBanks()['music'].length).toBe(311);
+    expect(JSON.parse(localStorage.getItem(storageKey)!)['music'].length).toBe(311);
   });
 
   it('does not change any bank if the CSV is malformed', async () => {
@@ -83,6 +97,8 @@ describe('Category comment bank', () => {
   });
 
   it('sends separate banks for all selected categories regardless of the editor selection', async () => {
+    const musicTemplates = Array.from({ length: 310 }, (_, i) => `Music template ${i}`);
+    page.commentBanks.update(banks => ({ ...banks, music: musicTemplates }));
     page.selectedCategoryIds.add('music-id'); page.selectedCategoryIds.add('daily-id');
     page.selectedVideos.add('music-video'); page.selectedVideos.add('daily-video');
     page.toggleUser({ userId: 'bot', username: 'bot', displayName: 'Bot', isBot: true });
@@ -90,7 +106,7 @@ describe('Category comment bank', () => {
     const request = http.expectOne('http://localhost:5080/api/v1/admin/recommendations/simulation-jobs');
     expect(request.request.body.commentTemplates).toEqual([]);
     expect(request.request.body.categoryComments).toEqual([
-      { categoryId: 'music-id', templates: ['Music only'] }, { categoryId: 'daily-id', templates: ['Daily only'] },
+      { categoryId: 'music-id', templates: musicTemplates }, { categoryId: 'daily-id', templates: ['Daily only'] },
     ]);
     request.flush({}, { status: 503, statusText: 'Fixture does not execute simulations' });
   });

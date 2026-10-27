@@ -10,7 +10,7 @@ import { errorMessage } from '../../core/auth.service';
 import { I18nService } from '../../core/i18n.service';
 import { RuntimeConfig } from '../../core/runtime-config';
 import { TranslatePipe } from '../../core/translate.pipe';
-import { MAX_COMMENT_TEMPLATES, mergeCommentTemplates, parseCommentCsv } from './comment-bank';
+import { mergeCommentTemplates, parseCommentCsv } from './comment-bank';
 
 interface Counts { pairs: number; users: number; videos: number; }
 interface MatrixPreview {
@@ -497,7 +497,7 @@ export class RecommendationsPage implements OnInit, OnDestroy {
       this.commentBanks.set(next);
       this.commentImportMessage.set(this.i18n.t('recommendations.commentCsvImported', {
         category: categoryName, added: String(result.added), duplicates: String(result.duplicates),
-        invalid: String(result.invalid), overflow: String(result.overflow),
+        invalid: String(result.invalid),
       }));
     } catch (error) {
       this.commentImportError.set(this.i18n.t(error instanceof Error && error.message === 'INVALID_COMMENT_CSV'
@@ -765,7 +765,7 @@ export class RecommendationsPage implements OnInit, OnDestroy {
       videoSkipRate: this.videoSkipRate,
       commentTemplates: [],
       categoryComments: this.categories().filter(category => this.selectedCategoryIds.has(category.categoryId)).map(category => ({
-        categoryId: category.categoryId, templates: (this.commentBanks()[category.slug] ?? []).slice(0, MAX_COMMENT_TEMPLATES),
+        categoryId: category.categoryId, templates: this.commentBanks()[category.slug] ?? [],
       })),
       confirmRealUsers: mode === 'target' && this.confirmRealUsers,
       categoryRates: this.categoryRatesPayload(),

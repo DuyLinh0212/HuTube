@@ -402,7 +402,7 @@
                 <button type="button" class="secondary" aria-describedby="comment-csv-help" [disabled]="importingComments() || !categories().length" (click)="commentCsvInput.click()">{{ (importingComments() ? 'recommendations.commentCsvImporting' : 'recommendations.commentCsvImport') | translate }}</button>
                 <button type="button" class="secondary" (click)="downloadCommentCsv()">{{ 'recommendations.commentCsvDownload' | translate }}</button>
                 <input #commentCsvInput type="file" accept=".csv,text/csv" hidden (change)="importCommentCsv($event)" />
-                <span>{{ commentsForActiveCategory().length }}/100 {{ 'recommendations.commentCount' | translate }}</span>
+                <span>{{ commentsForActiveCategory().length | number }} {{ 'recommendations.commentCount' | translate }}</span>
               </div>
               <p class="pool-caption" id="comment-csv-help">{{ 'recommendations.commentCsvHelp' | translate }}</p>
               @if (commentImportError()) { <app-result-notice tone="error" [message]="commentImportError()" /> }

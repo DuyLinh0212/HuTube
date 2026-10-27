@@ -9,15 +9,16 @@ describe('Comment CSV', () => {
   it('appends valid templates and reports duplicates and invalid rows', () => {
     const result = mergeCommentTemplates(['Existing'], parseCommentCsv('comment\nExisting\nNew comment\nNew comment\nno\nbad,columns\n'));
     expect(result.templates).toEqual(['Existing', 'New comment']);
-    expect(result).toEqual(jasmine.objectContaining({ added: 1, duplicates: 2, invalid: 2, overflow: 0 }));
+    expect(result).toEqual(jasmine.objectContaining({ added: 1, duplicates: 2, invalid: 2 }));
   });
 
-  it('keeps the existing bank and never silently exceeds 100 templates', () => {
-    const bank = Array.from({ length: 99 }, (_, i) => `Existing ${i}`);
-    const result = mergeCommentTemplates(bank, [['First'], ['Second'], ['x'.repeat(5001)]]);
-    expect(result.templates).toEqual([...bank, 'First']);
-    expect(result.overflow).toBe(1); expect(result.invalid).toBe(1);
-    expect(bank.length).toBe(99);
+  it('adds all 300 templates to an existing bank without a count limit', () => {
+    const bank = Array.from({ length: 10 }, (_, i) => `Existing ${i}`);
+    const imported = Array.from({ length: 300 }, (_, i) => `Imported ${i}`);
+    const result = mergeCommentTemplates(bank, [...imported.map(text => [text]), ['x'.repeat(5001)]]);
+    expect(result.templates).toEqual([...bank, ...imported]);
+    expect(result.added).toBe(300); expect(result.invalid).toBe(1);
+    expect(bank.length).toBe(10);
   });
 
   for (const csv of ['', 'wrong\nValid comment', 'comment,other\nA,B', 'comment\n"Unclosed', 'comment\n"Closed"junk', 'comment\nBad"quote']) {
