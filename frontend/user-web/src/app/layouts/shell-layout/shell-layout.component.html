@@ -1,3 +1,4 @@
+@if (embedded()) { <router-outlet /> } @else {
 <div class="app-shell" [class.nav-open]="navOpen()" [class.nav-collapsed]="navCollapsed()">
   <app-user-topbar [sidebarCollapsed]="navCollapsed()" (menuOpened)="toggleNavigation()" />
   <div class="shell-body">
@@ -8,3 +9,4 @@
     </section>
   </div>
 </div>
+}

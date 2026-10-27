@@ -20,6 +20,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
     public DbSet<ChannelMember> ChannelMembers => Set<ChannelMember>();
     public DbSet<ChannelInvitation> ChannelInvitations => Set<ChannelInvitation>();
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
+    public DbSet<ChannelAnalyticsEvent> ChannelAnalyticsEvents => Set<ChannelAnalyticsEvent>();
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
@@ -63,6 +64,16 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
     protected override void OnModelCreating(ModelBuilder model)
     {
         model.HasDefaultSchema("public");
+        model.Entity<ChannelAnalyticsEvent>(b => {
+            b.ToTable("channel_analytics_events"); b.HasKey(x => x.EventId);
+            b.Property(x => x.EventId).HasColumnName("event_id");
+            b.Property(x => x.ChannelId).HasColumnName("channel_id");
+            b.Property(x => x.VideoId).HasColumnName("video_id");
+            b.Property(x => x.OccurredAt).HasColumnName("occurred_at");
+            b.Property(x => x.Metric).HasColumnName("metric").HasMaxLength(24);
+            b.Property(x => x.Value).HasColumnName("value");
+            b.HasIndex(x => new { x.ChannelId, x.OccurredAt }).HasDatabaseName("ix_channel_analytics_channel_time");
+        });
         model.HasPostgresExtension("citext");
         model.HasPostgresExtension("unaccent");
         model.Entity<User>(b => {

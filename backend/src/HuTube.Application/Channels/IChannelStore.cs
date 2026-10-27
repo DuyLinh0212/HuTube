@@ -25,6 +25,7 @@ public interface IChannelStore
     Task<User?> FindUserByIdAsync(Guid userId, CancellationToken ct);
     Task<Subscription?> FindSubscriptionAsync(Guid userId, Guid channelId, CancellationToken ct);
     void AddSubscription(Subscription subscription);
+    void AddAnalyticsEvent(ChannelAnalyticsEvent analyticsEvent) { }
     Task<long> CountSubscribersAsync(Guid channelId, CancellationToken ct);
     Task<long> CountPublishedVideosAsync(Guid channelId, CancellationToken ct) => Task.FromResult(0L);
     Task<long> CountPublishedVideoViewsAsync(Guid channelId, CancellationToken ct) => Task.FromResult(0L);

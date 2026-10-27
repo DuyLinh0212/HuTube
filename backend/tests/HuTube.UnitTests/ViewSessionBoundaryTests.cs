@@ -45,6 +45,22 @@ public sealed class ViewSessionBoundaryTests
         using var db = Database(); var video = Seed(db);
         await Service(db, DateTimeOffset.UtcNow).SaveProgressAsync(Guid.NewGuid(), video.VideoId, new WatchProgressRequest(10, SaveHistory: false, NewSession: true));
         Assert.Empty(db.ViewingHistories);
+        Assert.Empty(db.ChannelAnalyticsEvents);
+    }
+
+    [Fact]
+    public async Task HourlyAnalytics_RecordsNewSessionsAndBoundsWatchEstimate()
+    {
+        using var db = Database(); var video = Seed(db); var viewer = Guid.NewGuid();
+        var now = DateTimeOffset.Parse("2026-10-27T06:00:00Z");
+        await Service(db, now).SaveProgressAsync(viewer, video.VideoId, new WatchProgressRequest(10));
+        await Service(db, now.AddSeconds(10)).SaveProgressAsync(viewer, video.VideoId, new WatchProgressRequest(20));
+        await Service(db, now.AddSeconds(20)).SaveProgressAsync(viewer, video.VideoId, new WatchProgressRequest(60));
+        await Service(db, now.AddSeconds(60)).SaveProgressAsync(viewer, video.VideoId, new WatchProgressRequest(60));
+
+        Assert.Equal(1, db.ChannelAnalyticsEvents.Count(e => e.Metric == "views"));
+        Assert.Equal(30, db.ChannelAnalyticsEvents.Where(e => e.Metric == "watchSeconds").Sum(e => e.Value));
+        Assert.All(db.ChannelAnalyticsEvents, e => Assert.Equal(video.ChannelId, e.ChannelId));
     }
 
     private static HuTubeDbContext Database() => new(new DbContextOptionsBuilder<HuTubeDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);

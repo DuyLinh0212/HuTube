@@ -46,6 +46,7 @@ export class App {
 
   readonly isAuthLayout = signal(true);
   readonly isStudioLayout = signal(false);
+  readonly isEmbeddedLayout = signal(false);
   readonly reloadRequired = signal(false);
   readonly uploadInProgress = computed(() => ['uploading', 'processing'].includes(this.upload.state().phase));
   private readonly upload = inject(UploadStateService);
@@ -162,5 +163,6 @@ export class App {
       ),
     );
     this.isStudioLayout.set(url.startsWith('/studio'));
+    this.isEmbeddedLayout.set(url.startsWith('/embed/'));
   }
 }

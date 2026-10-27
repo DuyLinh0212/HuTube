@@ -24,6 +24,7 @@ export const routes: Routes = [
   { path: 'channel/create', canActivate: [authGuard], loadComponent: () => import('./features/channel/channel-create-page').then(m => m.ChannelCreatePage) },
   { path: 'channel/:handle', loadComponent: () => import('./features/channel/channel-page').then(m => m.ChannelPage) },
   { path: 'watch/:id', loadComponent: () => import('./features/video/watch-page').then(m => m.WatchPage) },
+  { path: 'embed/:id', loadComponent: () => import('./features/video/embed-page').then(m => m.EmbedPage) },
   { path: 'terms', loadComponent: () => import('./features/policy/public-policy-page').then(m => m.PublicPolicyPage) },
   { path: 'privacy', loadComponent: () => import('./features/policy/public-policy-page').then(m => m.PublicPolicyPage) },
   { path: 'guidelines', loadComponent: () => import('./features/policy/public-policy-page').then(m => m.PublicPolicyPage) },

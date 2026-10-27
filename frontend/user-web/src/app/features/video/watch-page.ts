@@ -25,10 +25,12 @@ import { PlayerPreferencesService } from '../../core/player-preferences.service'
 import { ReportModalComponent } from '../../shared/report-modal/report-modal.component';
 import { VideoPlaylistMenuComponent } from '../../shared/video-playlist-menu/video-playlist-menu.component';
 import { InfiniteScrollDirective } from '../../shared/infinite-scroll.directive';
+import { PlayerContextMenu } from './player-context-menu';
+import { WATCH_TRANSLATIONS } from './watch-translations';
 
 @Component({
   selector: 'app-watch-page',
-  imports: [NgTemplateOutlet, ResultNoticeComponent, RequireLoginDirective, VideoDescriptionComponent, LocaleDatePipe, CompactLikeCountPipe, FormsModule, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent, InfiniteScrollDirective],
+  imports: [NgTemplateOutlet, ResultNoticeComponent, RequireLoginDirective, VideoDescriptionComponent, LocaleDatePipe, CompactLikeCountPipe, FormsModule, RouterLink, TranslatePipe, ReportModalComponent, VideoPlaylistMenuComponent, InfiniteScrollDirective, PlayerContextMenu],
   templateUrl: './watch-page.html',
   styleUrl: './watch-page.scss'
 })
@@ -161,8 +163,10 @@ export class WatchPage {
 
   @ViewChild('player') playerRef?: ElementRef<HTMLVideoElement>;
   @ViewChild('playerStage') playerStageRef?: ElementRef<HTMLElement>;
+  @ViewChild(PlayerContextMenu) playerMenu?: PlayerContextMenu;
 
   constructor() {
+    this.i18n.registerTranslations(WATCH_TRANSLATIONS);
     this.destroyRef.onDestroy(() => {
       this.clearPlayerTapTimer();
       this.clearSeekFeedbackTimer();
@@ -180,6 +184,17 @@ export class WatchPage {
     });
 
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
+      const start = params.get('t');
+      if (start !== null && /^\d+$/.test(start)) {
+        const seconds = Number(start);
+        if (Number.isSafeInteger(seconds)) {
+          this.resumeApplied = true;
+          const player = this.playerRef?.nativeElement;
+          if (player && player.readyState >= 1) {
+            player.currentTime = Math.min(seconds, Number.isFinite(player.duration) ? player.duration : seconds);
+          } else this.pendingSeek = seconds;
+        }
+      }
       const playlistId = params.get('playlist');
       this.playlistIndex = Number(params.get('index') ?? -1);
       if (playlistId !== this.playlistId) {
@@ -366,6 +381,7 @@ export class WatchPage {
     if (this.pendingSeek !== null) {
       player.currentTime = Math.min(this.pendingSeek, player.duration || this.pendingSeek);
       this.pendingSeek = null;
+      this.resumeApplied = true;
     } else if (!this.resumeApplied && (this.playback()?.resumeAtSeconds ?? 0) > 0) {
       const resume = this.playback()!.resumeAtSeconds;
       const duration = Number.isFinite(player.duration) ? player.duration : this.playback()?.duration ?? 0;
@@ -1092,6 +1108,7 @@ export class WatchPage {
   }
 
   async remove(comment: CommentItem) {
+    if (!this.isOwnComment(comment)) return;
     if (!this.requireAuthentication(this.i18n.t('watch.loginCommentDelete'))) return;
     if (!(await this.feedback.confirm(this.i18n.t('watch.deleteCommentConfirm'), { tone: 'danger' }))) return;
     this.content.deleteComment(comment.commentId).pipe(takeUntil(this.videoChanged), takeUntilDestroyed(this.destroyRef)).subscribe({
@@ -1279,7 +1296,10 @@ export class WatchPage {
     this.autoplay.update(value => !value);
   }
 
-  isOwnComment(comment: CommentItem) { return comment.userId === this.auth.user()?.userId; }
+  isOwnComment(comment: CommentItem) {
+    const userId = this.auth.user()?.userId;
+    return !!userId && !!comment.userId && comment.status !== 'deleted' && comment.userId === userId;
+  }
   isOwner() { return this.video()?.channelId === this.myChannelId(); }
 
   initials(value: string | null | undefined) {

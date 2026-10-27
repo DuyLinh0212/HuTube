@@ -18,9 +18,10 @@
   <app-shell-layout />
 }
 
-<app-upload-progress-tray />
-<app-login-prompt />
-<app-network-fallback />
-<app-feedback-survey [enabled]="!isAuthLayout()" />
-
-@defer (when feedback.visible()) { <app-feedback-host /> }
+@if (!isEmbeddedLayout()) {
+  <app-upload-progress-tray />
+  <app-login-prompt />
+  <app-network-fallback />
+  <app-feedback-survey [enabled]="!isAuthLayout()" />
+  @defer (when feedback.visible()) { <app-feedback-host /> }
+}

@@ -25,9 +25,10 @@
     <div class="watch-layout">
       <section class="watch-main">
         <div class="player-shell">
-          <div #playerStage class="player-stage">
+          <div #playerStage class="player-stage" (contextmenu)="playerMenu?.show($event, playerStage)">
             @if (activeRendition(); as source) {
               <video #player class="video-player" playsinline autoplay preload="metadata" [disablePictureInPicture]="!pipAllowed()" [volume]="volume()" [muted]="muted()" [poster]="item.thumbnailUrl || ''" [src]="source.url" (pointerup)="onPlayerPointerUp($event)" (pointercancel)="onPlayerPointerCancel()" (loadedmetadata)="onMetadata()" (timeupdate)="onProgress()" (play)="onPlaybackState(true)" (pause)="onPlaybackState(false)" (volumechange)="onVolumeChange()" (ended)="onEnded()" (error)="onPlayerError()"></video>
+              <app-player-context-menu [videoId]="item.videoId" [player]="playerRef?.nativeElement || null" [rendition]="source" (pip)="togglePictureInPicture()" (message)="actionMessage.set($event)" />
             } @else {
               <div class="player-empty"><span aria-hidden="true">▶</span><p>{{ 'watch.notReady' | translate }}</p></div>
             }
@@ -288,7 +289,17 @@
               <article class="comment-row" role="listitem" [attr.data-comment-id]="node.commentId" [class.comment-row--reply]="depth > 0" [class.comment-row--deep]="depth > 1" [class.is-hidden]="node.status === 'hidden'">
                 <span class="comment-avatar" aria-hidden="true">{{ initials(node.displayName) }}</span>
                 <div class="comment-body">
-                  <div class="comment-author"><strong>{{ node.displayName }}</strong><time>{{ node.createdAt | localeDate:'d MMM y' }}</time></div>
+                  <div class="comment-author"><strong>{{ node.displayName }}</strong><time>{{ node.createdAt | localeDate:'d MMM y' }}</time>
+                    @if (isOwnComment(node)) {
+                      <details class="comment-menu">
+                        <summary [attr.aria-label]="'playerMenu.commentOptions' | translate">⋮</summary>
+                        <div>
+                          <button type="button" (click)="editComment(node); $any($event.target).closest('details').open = false" [disabled]="commentEditBusy()">{{ 'common.edit' | translate }}</button>
+                          <button type="button" class="is-danger" (click)="remove(node); $any($event.target).closest('details').open = false">{{ 'watch.remove' | translate }}</button>
+                        </div>
+                      </details>
+                    }
+                  </div>
                   @if (editingCommentId() === node.commentId) {
                   <form class="comment-edit-form" (ngSubmit)="saveCommentEdit(node)">
                     <textarea name="commentEdit" [(ngModel)]="commentEditText" [attr.aria-label]="'common.edit' | translate" [disabled]="commentEditBusy()" required maxlength="5000"></textarea>
@@ -306,7 +317,7 @@
                       </button>
                     }
                     @if (isOwner()) { <button type="button" (click)="hide(node)">{{ commentStatusLabel(node.status === 'hidden') }}</button> }
-                    @if (isOwnComment(node)) { <button type="button" (click)="editComment(node)" [disabled]="commentEditBusy()">{{ 'common.edit' | translate }}</button> <button type="button" class="is-danger" (click)="remove(node)">{{ 'watch.remove' | translate }}</button> } @else { <button type="button" appRequireLogin (click)="report(node)">{{ 'watch.report' | translate }}</button> }
+                    @if (!isOwnComment(node)) { <button type="button" appRequireLogin (click)="report(node)">{{ 'watch.report' | translate }}</button> }
                   </div>
                   @if (replyTo() === node.commentId) {
                     <form class="reply-composer" appRequireLogin (ngSubmit)="reply(node)" [attr.aria-busy]="replyBusy() === node.commentId">

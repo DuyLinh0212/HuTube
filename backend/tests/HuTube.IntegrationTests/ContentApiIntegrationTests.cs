@@ -17,6 +17,8 @@ using HuTube.Application.Videos;
 using HuTube.Application.Notifications;
 using HuTube.Domain.Videos;
 using HuTube.Domain.Plans;
+using HuTube.Domain.Channels;
+using HuTube.Api.Controllers;
 using Microsoft.EntityFrameworkCore;
 
 namespace HuTube.IntegrationTests;
@@ -24,6 +26,46 @@ namespace HuTube.IntegrationTests;
 public sealed class ContentApiIntegrationTests(AuthApiFactory factory) : IClassFixture<AuthApiFactory>
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    [Fact]
+    public async Task HourlyAnalytics_GroupsEventsAndEnforcesChannelPermissions()
+    {
+        var (owner, _, channelId) = await CreateUserAndChannelAsync("hourly_owner");
+        var (viewer, viewerId, _) = await CreateUserAndChannelAsync("hourly_viewer");
+        var video = await CreatePublishedVideoAsync(owner, channelId, "Hourly test");
+        var second = await CreatePublishedVideoAsync(owner, channelId, "Other hourly test");
+        (await viewer.PostAsync($"/api/v1/channels/{channelId}/subscribe", null)).EnsureSuccessStatusCode();
+        (await viewer.PostAsync($"/api/v1/channels/{channelId}/subscribe", null)).EnsureSuccessStatusCode();
+        (await viewer.PutAsJsonAsync($"/api/v1/videos/{video.VideoId}/reaction", new { type = "like" })).EnsureSuccessStatusCode();
+        (await viewer.PutAsJsonAsync($"/api/v1/videos/{video.VideoId}/reaction", new { type = "like" })).EnsureSuccessStatusCode();
+        (await viewer.PutAsJsonAsync($"/api/v1/videos/{video.VideoId}/watch-progress", new { watchedSeconds = 10, saveHistory = true })).EnsureSuccessStatusCode();
+        var sampleTime = DateTimeOffset.UtcNow.AddHours(-2);
+        await using (var db = factory.CreateDb())
+        {
+            db.ChannelAnalyticsEvents.Add(new ChannelAnalyticsEvent { ChannelId = channelId, VideoId = video.VideoId,
+                OccurredAt = sampleTime, Metric = "watchSeconds", Value = 40 });
+            db.ChannelAnalyticsEvents.Add(new ChannelAnalyticsEvent { ChannelId = channelId, VideoId = second.VideoId,
+                OccurredAt = sampleTime, Metric = "likes", Value = 7 });
+            await db.SaveChangesAsync();
+        }
+        var url = $"/api/v1/studio/channels/{channelId}/hourly-analytics?days=7&utcOffsetMinutes=420&videoId={video.VideoId}";
+        Assert.Equal(HttpStatusCode.Forbidden, (await viewer.GetAsync(url)).StatusCode);
+        var result = await owner.GetFromJsonAsync<StudioHourlyAnalytics>(url, JsonOptions);
+        Assert.NotNull(result);
+        Assert.Equal(24, result!.Hours.Count);
+        Assert.Equal(1, result.Hours.Sum(h => h.Views));
+        Assert.Equal(1, result.Hours.Sum(h => h.Likes));
+        Assert.Equal(1, result.Hours.Sum(h => h.Subscribers));
+        Assert.Equal(40, result.Hours.Single(h => h.Hour == sampleTime.AddMinutes(420).Hour).WatchSeconds);
+        Assert.Equal(HttpStatusCode.BadRequest, (await owner.GetAsync(url.Replace("days=7", "days=500"))).StatusCode);
+
+        await using (var db = factory.CreateDb())
+        {
+            db.ChannelMembers.Add(new ChannelMember { ChannelId = channelId, UserId = viewerId, RoleCode = ChannelRoles.Editor, Status = "active" });
+            await db.SaveChangesAsync();
+        }
+        Assert.Equal(HttpStatusCode.OK, (await viewer.GetAsync(url)).StatusCode);
+    }
 
     [Theory]
     [InlineData(false)]

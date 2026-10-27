@@ -1,0 +1,18 @@
+@if (statsOpen()) {
+  <section class="stats" [attr.aria-label]="'playerMenu.stats' | translate" (click)="$event.stopPropagation()">
+    <button class="stats-close" type="button" (click)="closeStats()" [attr.aria-label]="'playerMenu.close' | translate">×</button>
+    @for (row of stats(); track row.label) {
+      <div><strong>{{ row.label | translate }}</strong><span>{{ row.value }}</span></div>
+    }
+  </section>
+}
+@if (open()) {
+  <div class="menu" role="menu" [style.left.px]="position().x" [style.top.px]="position().y" (click)="$event.stopPropagation()">
+    <button type="button" role="menuitemcheckbox" [attr.aria-checked]="looping()" (click)="toggleLoop()"><span>↻</span>{{ 'playerMenu.loop' | translate }} <b>{{ looping() ? '✓' : '' }}</b></button>
+    <button type="button" role="menuitem" (click)="open.set(false); pip.emit()"><span>▣</span>{{ 'playerMenu.pip' | translate }}</button>
+    <button type="button" role="menuitem" (click)="copy('url')"><span>↗</span>{{ 'playerMenu.url' | translate }}</button>
+    <button type="button" role="menuitem" (click)="copy('time')"><span>↗</span>{{ 'playerMenu.timeUrl' | translate }}</button>
+    <button type="button" role="menuitem" (click)="copy('embed')"><span>‹›</span>{{ 'playerMenu.embed' | translate }}</button>
+    <button type="button" role="menuitem" (click)="toggleStats()"><span>ⓘ</span>{{ 'playerMenu.stats' | translate }}</button>
+  </div>
+}

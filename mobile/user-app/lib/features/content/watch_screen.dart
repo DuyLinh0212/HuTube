@@ -3804,6 +3804,11 @@ class _CommentTileState extends State<_CommentTile> {
   }
 
   Future<void> _delete() async {
+    if (_item.status == 'deleted' ||
+        _item.userId == null ||
+        _item.userId != widget.auth.user?['userId']) {
+      return;
+    }
     final generation = _generation;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -4030,8 +4035,11 @@ class _CommentTileState extends State<_CommentTile> {
                             ),
                           ),
 
-                        if (_item.userId == widget.auth.user?['userId'] ||
-                            widget.isOwner)
+                        if (_item.status != 'deleted' &&
+                            ((_item.userId != null &&
+                                    _item.userId ==
+                                        widget.auth.user?['userId']) ||
+                                widget.isOwner))
                           PopupMenuButton<String>(
                             tooltip: AppStrings.t('watch.commentOptions'),
                             onSelected: (choice) {
@@ -4113,8 +4121,9 @@ class _CommentTileState extends State<_CommentTile> {
                                   ),
                                 ),
                               ],
-                              if (_item.userId ==
-                                  widget.auth.user?['userId']) ...[
+                              if (_item.userId != null &&
+                                  _item.userId ==
+                                      widget.auth.user?['userId']) ...[
                                 PopupMenuItem(
                                   value: 'edit',
                                   child: Row(

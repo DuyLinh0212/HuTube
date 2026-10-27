@@ -1,0 +1,15 @@
+:host { display: block; margin: 18px 0; }
+.hourly { border: 1px solid var(--line); border-radius: 18px; padding: 22px; background: var(--surface); color: var(--ink); }
+header { display: flex; justify-content: space-between; align-items: center; gap: 18px; }
+h2, h3, p { margin: 0; } h2 { font-size: 1.1rem; } header p { margin-top: 6px; color: var(--text-muted); font-size: .82rem; }
+label { display: grid; gap: 4px; color: var(--text-muted); font-size: .75rem; }
+select { min-height: 40px; border: 1px solid var(--line); border-radius: 9px; padding: 0 10px; color: var(--ink); background: var(--surface); }
+.charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 20px; }
+article { min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 12px; }
+h3 { font-size: .85rem; color: var(--text-muted); } article strong { display: block; margin-top: 8px; font-size: 1.35rem; }
+.bars { display: flex; align-items: stretch; gap: 3px; height: 85px; margin-top: 16px; border-bottom: 1px solid var(--line); }
+.bars div { display: flex; flex: 1; align-items: end; min-width: 0; }
+.bars span { width: 100%; min-height: 0; border-radius: 3px 3px 0 0; background: var(--primary); }
+.axis { display: flex; justify-content: space-between; margin-top: 5px; color: var(--text-muted); font-size: .65rem; }
+.note { margin-top: 12px; color: var(--text-muted); font-size: .76rem; line-height: 1.5; }
+@media (max-width: 700px) { header { align-items: stretch; flex-direction: column; } .charts { grid-template-columns: 1fr; } }

@@ -550,6 +550,7 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
             subscription.Status = "active";
             subscription.SubscribedAt = DateTimeOffset.UtcNow;
             subscription.NotificationsEnabled = true;
+            store.AddAnalyticsEvent(new ChannelAnalyticsEvent { ChannelId = channelId, OccurredAt = subscription.SubscribedAt, Metric = "subscribers", Value = 1 });
             await store.SaveAsync(ct);
             return ToSubscriptionResponse(subscription);
         }
@@ -564,6 +565,7 @@ public sealed class ChannelService(IChannelStore store, RbacService? audit = nul
             Status = "active"
         };
         store.AddSubscription(subscription);
+        store.AddAnalyticsEvent(new ChannelAnalyticsEvent { ChannelId = channelId, OccurredAt = subscription.SubscribedAt, Metric = "subscribers", Value = 1 });
         await store.SaveAsync(ct);
 
         return ToSubscriptionResponse(subscription);

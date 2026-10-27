@@ -1,0 +1,31 @@
+<section class="hourly">
+  <header>
+    <div><h2>{{ 'hourly.title' | translate }}</h2><p>{{ 'hourly.desc' | translate }} ({{ timezone }})</p></div>
+    <label><span>{{ 'hourly.days' | translate }}</span>
+      <select [value]="days()" (change)="days.set(+$any($event.target).value)">
+        <option value="1">{{ 'hourly.day1' | translate }}</option><option value="7">{{ 'hourly.day7' | translate }}</option><option value="30">{{ 'hourly.day30' | translate }}</option>
+      </select>
+    </label>
+  </header>
+  @if (loading()) { <p role="status">{{ 'hourly.loading' | translate }}</p> }
+  @else if (error()) { <p role="alert">{{ 'hourly.error' | translate }} <button type="button" (click)="retry()">{{ 'hourly.retry' | translate }}</button></p> }
+  @else {
+    <div class="charts">
+      @for (metric of metrics; track metric.key) {
+        <article>
+          <h3>{{ metric.label | translate }}</h3><strong>{{ format(metric.key, total(metric.key)) }}</strong>
+          <div class="bars" role="list" [attr.aria-label]="metric.label | translate">
+            @for (hour of hours(); track hour.hour) {
+              <div role="listitem" [attr.aria-label]="label(metric.key, hour)" [title]="label(metric.key, hour)">
+                <span [style.height.%]="height(metric.key, hour[metric.key])"></span>
+              </div>
+            }
+          </div>
+          <div class="axis"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
+        </article>
+      }
+    </div>
+    <p class="note">{{ 'hourly.note' | translate }}</p>
+    <p class="note">{{ 'hourly.channelNote' | translate }}</p>
+  }
+</section>

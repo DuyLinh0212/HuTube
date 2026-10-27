@@ -15,10 +15,14 @@ export class ShellLayoutComponent {
   private readonly router = inject(Router);
 
   readonly navOpen = signal(false);
+  readonly embedded = signal(this.router.url.startsWith('/embed/'));
   readonly navCollapsed = signal(localStorage.getItem('hutube.user.sidebar-collapsed') === 'true');
 
   constructor() {
-    this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(() => this.closeNavigation());
+    this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(() => {
+      this.embedded.set(this.router.url.startsWith('/embed/'));
+      this.closeNavigation();
+    });
   }
 
   closeNavigation() { this.navOpen.set(false); }

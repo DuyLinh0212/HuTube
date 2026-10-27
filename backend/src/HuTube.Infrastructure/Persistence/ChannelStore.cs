@@ -93,6 +93,7 @@ public sealed class ChannelStore(HuTubeDbContext db) : IChannelStore
         db.Subscriptions.SingleOrDefaultAsync(x => x.UserId == userId && x.ChannelId == channelId, ct);
 
     public void AddSubscription(Subscription subscription) => db.Subscriptions.Add(subscription);
+    public void AddAnalyticsEvent(ChannelAnalyticsEvent analyticsEvent) => db.ChannelAnalyticsEvents.Add(analyticsEvent);
 
     public Task<long> CountSubscribersAsync(Guid channelId, CancellationToken ct) =>
         db.Subscriptions.LongCountAsync(x => x.ChannelId == channelId && x.Status == "active", ct);

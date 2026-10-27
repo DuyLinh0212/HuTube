@@ -1442,12 +1442,26 @@ public sealed class ContentService(
         catch (VideoValidationException ex) { throw Error(400, ex.Code, ex.Message); }
         if (!request.SaveHistory) return new(Math.Clamp(request.WatchedSeconds, 0, video.Duration), progress, Now);
         var item = await db.ViewingHistories.Where(x => x.UserId == userId && x.VideoId == videoId).OrderByDescending(x => x.ViewedAt).FirstOrDefaultAsync(ct);
-        if (item == null || request.NewSession || (Now - item.ViewedAt) > ViewSessionCooldown)
+        var now = Now;
+        if (item == null || request.NewSession || (now - item.ViewedAt) > ViewSessionCooldown)
         {
             item = new ViewingHistory { UserId = userId, VideoId = videoId };
             db.ViewingHistories.Add(item);
+            db.ChannelAnalyticsEvents.Add(new() { ChannelId = video.ChannelId, VideoId = videoId, OccurredAt = now, Metric = "views", Value = 1 });
         }
-        item.WatchDuration = Math.Clamp(request.WatchedSeconds, 0, video.Duration); item.Progress = progress; item.ViewedAt = Now;
+        else
+        {
+            // Progress is a playback position, not elapsed time. Bound the
+            // estimate by wall time and discard long gaps rather than treating
+            // a seek or an idle browser as a long viewing session.
+            var elapsed = (now - item.ViewedAt).TotalSeconds;
+            var advance = Math.Clamp(request.WatchedSeconds, 0, video.Duration) - item.WatchDuration;
+            var seconds = elapsed is > 0 and <= 30 && advance > 0
+                ? Math.Min(advance, (int)Math.Ceiling(elapsed * 2)) : 0;
+            if (seconds > 0)
+                db.ChannelAnalyticsEvents.Add(new() { ChannelId = video.ChannelId, VideoId = videoId, OccurredAt = now, Metric = "watchSeconds", Value = seconds });
+        }
+        item.WatchDuration = Math.Clamp(request.WatchedSeconds, 0, video.Duration); item.Progress = progress; item.ViewedAt = now;
         await db.SaveChangesAsync(ct);
         return new(item.WatchDuration, item.Progress, item.ViewedAt);
     }
@@ -1465,6 +1479,8 @@ public sealed class ContentService(
             if (item == null) { item = new VideoReaction { UserId = userId, VideoId = videoId, CreatedAt = Now }; db.VideoReactions.Add(item); }
             item.Type = normalizedReaction!; item.UpdatedAt = Now;
         }
+        if (normalizedReaction == "like" && previousReaction != "like")
+            db.ChannelAnalyticsEvents.Add(new() { ChannelId = video.ChannelId, VideoId = videoId, OccurredAt = Now, Metric = "likes", Value = 1 });
         await db.SaveChangesAsync(ct);
         if (normalizedReaction == "like" && previousReaction != "like")
         {

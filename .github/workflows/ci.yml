@@ -302,6 +302,9 @@ jobs:
       - name: Verify channel and watch infinite scroll
         if: ${{ !cancelled() && steps.e2e_setup.outcome == 'success' }}
         run: python scripts/ui-regression/channel-watch-scroll.py --root frontend/user-web/dist/user-web/browser --artifacts frontend/e2e_testing/artifacts/channel-watch-scroll
+      - name: Verify player menu, comments and hourly analytics
+        if: ${{ !cancelled() && steps.e2e_setup.outcome == 'success' }}
+        run: python scripts/ui-regression/player-hourly-comments.py --root frontend/user-web/dist/user-web/browser --video mobile/user-app/test/fixtures/download-sample.mp4 --artifacts frontend/e2e_testing/artifacts/player-hourly
       - name: Export User and Admin Excel report
         if: ${{ !cancelled() && steps.e2e_setup.outcome == 'success' }}
         run: python frontend/e2e_testing/coverage/export_ci_report.py
@@ -322,6 +325,7 @@ jobs:
             frontend/e2e_testing/artifacts/chunk-recovery/**
             frontend/e2e_testing/artifacts/watch-recommendations/**
             frontend/e2e_testing/artifacts/channel-watch-scroll/**
+            frontend/e2e_testing/artifacts/player-hourly/**
             frontend/e2e_testing/screenshots/20*/**
           if-no-files-found: warn
           retention-days: 14

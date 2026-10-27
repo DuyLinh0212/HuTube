@@ -4,6 +4,7 @@ import { StudioDataService, StudioVideoSummary } from '../../../core/studio-data
 import { I18nService } from '../../../core/i18n.service';
 import { CompactLikeCountPipe, LocaleNumberPipe } from '../../../core/locale-number.pipe';
 import { TranslatePipe } from '../../../core/translate.pipe';
+import { HourlyAnalyticsComponent } from './hourly-analytics.component';
 
 type MetricKey = 'views' | 'likes' | 'comments' | 'watchDuration' | 'rating';
 
@@ -18,7 +19,7 @@ interface AnalyticsMetric {
 
 @Component({
   selector: 'app-studio-analytics-page',
-  imports: [LocaleNumberPipe, CompactLikeCountPipe, TranslatePipe, RouterLink],
+  imports: [LocaleNumberPipe, CompactLikeCountPipe, TranslatePipe, RouterLink, HourlyAnalyticsComponent],
   templateUrl: './studio-analytics-page.html',
   styleUrl: './studio-analytics-page.scss',
 })
