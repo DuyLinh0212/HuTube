@@ -110,7 +110,9 @@ jobs:
         if: always()
         with:
           name: backend-test-results
-          path: backend/tests/**/TestResults/*.trx
+          path: |
+            backend/tests/**/TestResults/*.trx
+            backend/tests/**/TestResults/performance/*.json
 
   web:
     strategy:

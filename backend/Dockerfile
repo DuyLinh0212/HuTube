@@ -16,7 +16,15 @@ ENV ASPNETCORE_URLS=http://+:8080
 ENV ASPNETCORE_HTTP_PORTS=""
 USER root
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libgssapi-krb5-2 ffmpeg \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && install -d -m 0755 /usr/share/postgresql-common/pgdg \
+    && curl --fail --silent --show-error --location https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+        --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+    && printf 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$(. /etc/os-release && printf '%s' "$VERSION_CODENAME")" \
+        > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg libgssapi-krb5-2 postgresql-client-18 \
+    && pg_dump --version \
     && rm -rf /var/lib/apt/lists/*
 RUN mkdir -p /app/.work/mail /app/uploads \
     && chown -R $APP_UID:$APP_UID /app/.work /app/uploads
