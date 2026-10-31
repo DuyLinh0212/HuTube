@@ -53,12 +53,17 @@ export class DatabaseBackupsPage implements OnInit, OnDestroy {
   readonly invalidDateRange = computed(() => !!this.fromDate() && !!this.toDate() && this.fromDate() > this.toDate());
   readonly dayOptions = dayKeys.map((key, value) => ({ value, key }));
   private pollTimer: number | null = null;
+  private historyFilterTimer: number | null = null;
 
   ngOnInit(): void { this.load(); }
 
-  ngOnDestroy(): void { this.clearPoll(); }
+  ngOnDestroy(): void {
+    this.clearPoll();
+    this.clearHistoryFilterTimer();
+  }
 
   load(refreshSchedule = true): void {
+    this.clearHistoryFilterTimer();
     this.loading.set(true);
     this.loadError.set(false);
     this.backups.getOverview(this.fromDate(), this.toDate()).subscribe({
@@ -73,12 +78,27 @@ export class DatabaseBackupsPage implements OnInit, OnDestroy {
     });
   }
 
-  applyFilters(): void { this.load(false); }
+  setScheduleEnabled(value: boolean): void {
+    const previousEnabled = this.enabled();
+    if (value === previousEnabled || this.saving()) return;
+    this.enabled.set(value);
+    this.saveSchedule(previousEnabled);
+  }
+
+  setFromDate(value: string): void {
+    this.fromDate.set(value);
+    this.scheduleHistoryReload();
+  }
+
+  setToDate(value: string): void {
+    this.toDate.set(value);
+    this.scheduleHistoryReload();
+  }
 
   setFrequency(value: string): void { this.frequency.set(value === 'weekly' ? 'weekly' : 'daily'); }
   setDayOfWeek(value: string | number): void { this.dayOfWeek.set(Number(value)); }
 
-  saveSchedule(): void {
+  saveSchedule(previousEnabled = this.enabled()): void {
     if (!this.canManage() || this.saving()) return;
     this.saving.set(true);
     this.saveError.set(false);
@@ -96,7 +116,12 @@ export class DatabaseBackupsPage implements OnInit, OnDestroy {
         this.saved.set(true);
         this.saving.set(false);
       },
-      error: () => { this.saveError.set(true); this.saving.set(false); },
+      error: () => {
+        this.enabled.set(previousEnabled);
+        this.saveError.set(true);
+        this.saved.set(false);
+        this.saving.set(false);
+      },
     });
   }
 
@@ -178,6 +203,20 @@ export class DatabaseBackupsPage implements OnInit, OnDestroy {
   private clearPoll(): void {
     if (this.pollTimer !== null) window.clearTimeout(this.pollTimer);
     this.pollTimer = null;
+  }
+
+  private scheduleHistoryReload(): void {
+    this.clearHistoryFilterTimer();
+    if (!this.fromDate() || !this.toDate() || this.invalidDateRange()) return;
+    this.historyFilterTimer = window.setTimeout(() => {
+      this.historyFilterTimer = null;
+      this.load(false);
+    }, 250);
+  }
+
+  private clearHistoryFilterTimer(): void {
+    if (this.historyFilterTimer !== null) window.clearTimeout(this.historyFilterTimer);
+    this.historyFilterTimer = null;
   }
 
   private locale(): string { return this.i18n.currentLang() === 'vi' ? 'vi-VN' : 'en-US'; }

@@ -6,7 +6,7 @@
       <p>{{ 'backups.subtitle' | translate }}</p>
     </div>
     <div class="heading-actions">
-      <button class="quiet-button" type="button" (click)="load()" [disabled]="loading()">
+      <button class="quiet-button" type="button" (click)="load()" [disabled]="loading() || saving()">
         <span aria-hidden="true">↻</span>{{ 'backups.refresh' | translate }}
       </button>
       @if (canManage()) {
@@ -48,8 +48,8 @@
       <article class="schedule-card">
         <div class="card-heading">
           <div><span class="section-kicker">{{ 'backups.scheduleKicker' | translate }}</span><h2>{{ 'backups.scheduleTitle' | translate }}</h2></div>
-          <span class="schedule-state" [class.is-enabled]="data.schedule.enabled">
-            <span class="state-dot"></span>{{ (data.schedule.enabled ? 'backups.enabled' : 'backups.disabled') | translate }}
+          <span class="schedule-state" [class.is-enabled]="enabled()">
+            <span class="state-dot"></span>{{ (enabled() ? 'backups.enabled' : 'backups.disabled') | translate }}
           </span>
         </div>
 
@@ -60,10 +60,12 @@
         </div>
 
         <form class="schedule-form" (ngSubmit)="saveSchedule()">
-          <label class="schedule-toggle" for="backup-enabled">
+          <div class="schedule-toggle">
             <span><strong>{{ 'backups.enableSchedule' | translate }}</strong><small>{{ 'backups.enableHint' | translate }}</small></span>
-            <input id="backup-enabled" name="enabled" type="checkbox" [ngModel]="enabled()" (ngModelChange)="enabled.set($event)" [disabled]="!canManage() || saving()" />
-          </label>
+            <button class="schedule-switch" type="button" role="switch" [attr.aria-checked]="enabled()" [attr.aria-label]="'backups.enableSchedule' | translate" (click)="setScheduleEnabled(!enabled())" [disabled]="!canManage() || saving()">
+              <span aria-hidden="true"></span>
+            </button>
+          </div>
 
           <div class="schedule-fields">
             <label><span>{{ 'backups.frequency' | translate }}</span>
@@ -135,9 +137,8 @@
         <span class="record-count">{{ data.runs.length | number }} {{ 'backups.records' | translate }}</span>
       </div>
       <div class="history-filters">
-        <label><span>{{ 'backups.fromDate' | translate }}</span><input type="date" name="fromDate" [ngModel]="fromDate()" (ngModelChange)="fromDate.set($event)" /></label>
-        <label><span>{{ 'backups.toDate' | translate }}</span><input type="date" name="toDate" [ngModel]="toDate()" (ngModelChange)="toDate.set($event)" /></label>
-        <button type="button" class="filter-button" (click)="applyFilters()" [disabled]="loading() || !fromDate() || !toDate() || invalidDateRange()">{{ 'backups.applyFilter' | translate }}</button>
+        <label><span>{{ 'backups.fromDate' | translate }}</span><input type="date" name="fromDate" [ngModel]="fromDate()" (ngModelChange)="setFromDate($event)" /></label>
+        <label><span>{{ 'backups.toDate' | translate }}</span><input type="date" name="toDate" [ngModel]="toDate()" (ngModelChange)="setToDate($event)" /></label>
         @if (invalidDateRange()) { <span class="filter-error">{{ 'backups.invalidDateRange' | translate }}</span> }
       </div>
 
