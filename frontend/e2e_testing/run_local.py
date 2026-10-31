@@ -80,7 +80,7 @@ def stop_process(process):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=ROOT / "config.example.json")
-    parser.add_argument("--suite", choices=("auth", "web", "full", "rbac"), default="auth", help="Run auth, web, expanded functional or the 50-permission RBAC matrix.")
+    parser.add_argument("--suite", choices=("auth", "web", "full", "rbac"), default="auth", help="Run auth, web, expanded functional or the 52-permission RBAC matrix.")
     parser.add_argument("--groups",default="auth-deep",help="Groups for the expanded full suite.")
     parser.add_argument("--delta-only",action="store_true",help="Run only reviewed scenario gaps; fail before executing retained or excluded parent scenarios.")
     parser.add_argument("--resume-run",help="Resume synthetic fixtures from an interrupted expanded run ID; no prior case is counted as newly executed.")

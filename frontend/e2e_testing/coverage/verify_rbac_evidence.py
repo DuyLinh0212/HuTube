@@ -9,14 +9,21 @@ from tests.rbac_matrix import ACTION_CONTROLS, CATALOGUE_ONLY, ROUTES
 
 
 def verify(run_dir):
-    report = json.loads((run_dir / 'report.json').read_text(encoding='utf-8'))
-    coverage = json.loads((run_dir / 'rbac-coverage.json').read_text(encoding='utf-8'))
+    report_path = run_dir / 'report.json'
+    assert report_path.is_file(), f'Missing report.json in {run_dir}'
+    report = json.loads(report_path.read_text(encoding='utf-8'))
     assert report['suite'] == 'rbac'
-    assert not report.get('run_error'), 'Incomplete RBAC runner execution'
+    assert not report.get('run_error'), (
+        'Incomplete RBAC runner execution: ' + str(report.get('run_error_message') or report.get('run_error')))
     assert not report.get('page_errors'), 'Unexpected JavaScript page errors'
     assert report['failed'] == report['blocked'] == report['reused'] == 0
+    coverage_path = run_dir / 'rbac-coverage.json'
+    assert coverage_path.is_file(), f'Missing rbac-coverage.json after a completed RBAC run in {run_dir}'
+    coverage = json.loads(coverage_path.read_text(encoding='utf-8'))
     codes = coverage['catalogue_permissions']
-    assert len(set(codes)) == 50 and len({c.split('.')[0] for c in codes}) == 16
+    group_count = len({c.split('.')[0] for c in codes})
+    assert len(set(codes)) == 52 and group_count == 17
+    assert coverage['group_count'] == group_count
     assert set(coverage['catalogue_only_permissions']) == CATALOGUE_ONLY
     cases = report['cases']
     assert len({c['id'] for c in cases}) == len(cases)
@@ -38,14 +45,14 @@ def verify(run_dir):
         assert screenshot.is_relative_to((ROOT / 'screenshots' / report['run_id']).resolve())
         assert screenshot.read_bytes()[:8] == b'\x89PNG\r\n\x1a\n', case['id']
         assert case['business_endpoint_available'] == (case['permission'] not in CATALOGUE_ONLY)
-    assert len(coverage['requests']) == 50 * 4
+    assert len(coverage['requests']) == len(codes) * 4
     for request in coverage['requests']:
         status = request['status']
         phase = request['phase']
         assert (phase == 'ALLOWED' and status in (200, 201, 204)
                 or phase == 'ANONYMOUS' and status == 401
                 or phase in ('DENIED', 'REVOKED') and status == (404 if request['permission'] == 'video.view_private' else 403)), request
-    print(f"RBAC: {len(cases)} passed; 50 permission lifecycles; 50 real API contracts; 16 route guards.")
+    print(f"RBAC: {len(cases)} passed; {len(codes)} permission lifecycles; {len(codes)} real API contracts; {len(ROUTES)} route guards.")
 
 
 if __name__ == '__main__':

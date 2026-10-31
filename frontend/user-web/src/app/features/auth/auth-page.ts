@@ -7,8 +7,39 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize, Observable } from 'rxjs';
 import { AuthService, captureBrowserLocation, errorMessage, safeReturnUrl } from '../../core/auth.service';
 import { ADMIN_APP, RuntimeConfig } from '../../core/runtime-config';
-import { I18nService } from '../../core/i18n.service';
+import { I18nService, type AppLang } from '../../core/i18n.service';
 import { TranslatePipe } from '../../core/translate.pipe';
+
+const AUTH_PAGE_COPY: Record<AppLang, Record<string, string>> = {
+  vi: {
+    forgotSubtitle: 'Nhập email để nhận mã OTP đặt lại mật khẩu.',
+    resetSubtitle: 'Nhập mã OTP trong email và chọn mật khẩu mới.',
+    resetCode: 'Mã OTP',
+    resetCodeHint: 'Mã gồm 8 chữ số, có hiệu lực trong 10 phút.',
+    resetCodeInvalid: 'Nhập mã OTP gồm đúng 8 chữ số.',
+    sendResetCode: 'Gửi mã OTP',
+    enterResetCode: 'Nhập mã OTP',
+    requestNewCode: 'Yêu cầu mã mới',
+    forgotSuccess: 'Nếu email có trong hệ thống, mã OTP đặt lại mật khẩu sẽ được gửi đến bạn. Hãy kiểm tra hộp thư và nhập mã ở bước tiếp theo.',
+    resetSuccess: 'Đã đổi mật khẩu và kết thúc các phiên cũ. Bạn có thể đăng nhập bằng mật khẩu mới.',
+    passwordMismatch: 'Mật khẩu xác nhận chưa khớp.',
+    formInvalid: 'Vui lòng kiểm tra các trường được đánh dấu.',
+  },
+  en: {
+    forgotSubtitle: 'Enter your email to receive a password reset OTP.',
+    resetSubtitle: 'Enter the OTP from your email and choose a new password.',
+    resetCode: 'OTP code',
+    resetCodeHint: 'The 8-digit code expires in 10 minutes.',
+    resetCodeInvalid: 'Enter the 8-digit OTP code.',
+    sendResetCode: 'Send OTP code',
+    enterResetCode: 'Enter OTP code',
+    requestNewCode: 'Request a new code',
+    forgotSuccess: 'If the email is registered, a password reset OTP will be sent. Check your inbox and enter the code in the next step.',
+    resetSuccess: 'Your password was changed and old sessions were ended. You can now sign in with the new password.',
+    passwordMismatch: 'Passwords do not match.',
+    formInvalid: 'Check the fields marked in the form.',
+  },
+};
 
 declare global { interface Window { google?: { accounts: { id: { initialize(config: { client_id: string; callback: (response: { credential?: string }) => void; auto_select: boolean }): void; renderButton(parent: HTMLElement, options: { theme: string; size: string; width: number }): void; }; }; }; } }
 
@@ -17,6 +48,7 @@ export class AuthPage implements AfterViewChecked {
   readonly admin = ADMIN_APP;
   readonly auth = inject(AuthService);
   readonly i18n = inject(I18nService);
+  authPageText(key: keyof typeof AUTH_PAGE_COPY.vi): string { return AUTH_PAGE_COPY[this.i18n.currentLang()][key]; }
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private destroyRef = inject(DestroyRef);
@@ -144,8 +176,8 @@ export class AuthPage implements AfterViewChecked {
   submit(form: NgForm) {
     if (this.busy()) return;
     this.syncAutofilledEmail(form, 'email');
-    if (form.invalid) { form.control.markAllAsTouched(); this.error.set(this.i18n.t('auth.formInvalid')); return; }
-    if (['register', 'reset-password'].includes(this.mode()) && this.password !== this.confirmPassword) { this.error.set(this.i18n.t('auth.passwordMismatch')); return; }
+    if (form.invalid) { form.control.markAllAsTouched(); this.error.set(this.authPageText('formInvalid')); return; }
+    if (['register', 'reset-password'].includes(this.mode()) && this.password !== this.confirmPassword) { this.error.set(this.authPageText('passwordMismatch')); return; }
     switch (this.mode()) {
       case 'login':
         this.busy.set(true);
@@ -157,8 +189,8 @@ export class AuthPage implements AfterViewChecked {
         });
         break;
       case 'register': this.run(this.auth.register({ username: this.username.trim(), email: this.email.trim(), displayName: this.displayName.trim(), password: this.password }), () => { this.completed.set(true); this.password = ''; this.confirmPassword = ''; this.message.set(this.i18n.t('auth.registerSuccess')); }); break;
-      case 'forgot-password': this.run(this.auth.forgot(this.email.trim()), () => { this.message.set(this.i18n.t('auth.forgotSuccess')); this.completed.set(true); }); break;
-      case 'reset-password': this.run(this.auth.reset(this.email.trim(), this.code.trim(), this.password), () => { this.password = ''; this.confirmPassword = ''; this.code = ''; this.completed.set(true); this.message.set(this.i18n.t('auth.resetSuccess')); }); break;
+      case 'forgot-password': this.run(this.auth.forgot(this.email.trim()), () => { this.message.set(this.authPageText('forgotSuccess')); this.completed.set(true); }); break;
+      case 'reset-password': this.run(this.auth.reset(this.email.trim(), this.code.trim(), this.password), () => { this.password = ''; this.confirmPassword = ''; this.code = ''; this.completed.set(true); this.message.set(this.authPageText('resetSuccess')); }); break;
     }
   }
   verify() { this.run(this.auth.verify(this.token), () => { this.completed.set(true); this.message.set(this.i18n.t('auth.verifySuccess')); }); }

@@ -1,4 +1,4 @@
-"""Real browser/HTTP matrix for all 50 permissions; owned loopback DB only."""
+"""Real browser/HTTP matrix for all 52 permissions; owned loopback DB only."""
 import argparse
 import json
 import re
@@ -30,6 +30,8 @@ ROUTES = [
     ('report.view', '/moderation/reports', 'app-admin-reports-page'),
     ('appeal.view', '/moderation/appeals', 'app-admin-appeals-page'),
     ('strike.view', '/moderation/strikes', 'app-admin-strikes-page'),
+    ('backup.view', '/system/database-backups', 'app-database-backups-page'),
+    ('backup.manage', '/system/database-backups', 'app-database-backups-page'),
 ]
 ACTION_CONTROLS = [
     ('role.edit', 'role.view', '/roles', '.heading-actions .primary-action'),
@@ -44,6 +46,7 @@ ACTION_CONTROLS = [
     ('channel.lock', 'strike.view', '/moderation/strikes', '[data-testid=channel-lock-management]'),
     ('channel.export', 'channel.view', '/channels', '[data-testid=channel-export]'),
     ('video.export', 'video.view', '/videos', '[data-testid=video-export]'),
+    ('backup.manage', 'backup.view', '/system/database-backups', '.save-button'),
 ]
 READS = {
     'dashboard.view': '/admin/operations/reports', 'user.view': '/admin/users',
@@ -54,6 +57,7 @@ READS = {
     'payment.view': '/admin/payments', 'policy.view': '/admin/policies',
     'report.view': '/admin/reports/cases', 'appeal.view': '/admin/appeals',
     'strike.view': '/admin/strikes',
+    'backup.view': '/admin/database-backups',
 }
 
 
@@ -71,8 +75,9 @@ class Matrix:
         # Fail on catalogue drift: a new permission must get a scenario, not disappear.
         source = (ROOT.parents[1] / 'backend/src/HuTube.Domain/Rbac/Rbac.cs').read_text(encoding='utf-8')
         constants = re.findall(r'public const string \w+ = "([a-z_]+\.[a-z_]+)";', source.split('public static class AdminPermissions')[1].split('public sealed class Permission')[0])
-        assert set(self.codes) == set(constants) and len(self.codes) == 50
-        assert len({c.split('.')[0] for c in self.codes}) == 16
+        assert set(self.codes) == set(constants) and len(self.codes) == 52
+        assert len({c.split('.')[0] for c in self.codes}) == 17
+        self.backup_schedule_baseline = self.call(self.admin, 'get', READS['backup.view']).json()['schedule']
         self.role = self.call(self.admin, 'post', '/admin/roles', data={
             'code': 'matrix_' + uid().replace('-', ''), 'name': 'RBAC isolated matrix',
             'permissionCodes': self.codes, 'reason': 'Owned local permission matrix',
@@ -159,6 +164,9 @@ class Matrix:
             return 'get', READS[permission], None, lambda response: None
         if permission in ('channel.export', 'video.export'):
             return 'get', '/admin/' + ('channels' if permission == 'channel.export' else 'videos') + '/export', None, self.verify_export
+        if permission == 'backup.manage':
+            payload = {'enabled': False, 'frequency': 'weekly', 'dayOfWeek': 3, 'time': '03:15'}
+            return 'put', '/admin/database-backups/schedule', payload, self.verify_backup_schedule
         token = uid().replace('-', '')
         reason = 'RBAC matrix ' + token
         body = {'reason': reason, 'notifyOwner': False}
@@ -288,10 +296,23 @@ class Matrix:
         assert result['total'] == len(result['items'])
         assert len({r.get('channelId') if 'videoId' not in r else r['videoId'] for r in result['items']}) == result['total']
 
+    def verify_backup_schedule(self, response):
+        schedule = response.json()
+        assert schedule['enabled'] is False
+        assert schedule['frequency'] == 'weekly'
+        assert schedule['dayOfWeek'] == 3
+        assert schedule['time'] == '03:15'
+        self.verify('database_backup_schedules', 'id', '1', 'enabled', 'false')
+        self.verify('database_backup_schedules', 'id', '1', 'frequency', 'weekly')
+        self.verify('database_backup_schedules', 'id', '1', 'day_of_week', '3')
+        self.verify('database_backup_schedules', 'id', '1', 'hour', '3')
+        self.verify('database_backup_schedules', 'id', '1', 'minute', '15')
+
     def snapshot(self):
         # Permission denial audit events are expected; business data must not change.
         tables = ['users', 'roles', 'channels', 'videos', 'plans', 'policies', 'categories',
-                  'moderation_cases', 'reports', 'appeals', 'channel_strikes']
+                  'moderation_cases', 'reports', 'appeals', 'channel_strikes',
+                  'database_backup_schedules', 'database_backup_runs']
         return self.sql('SELECT json_build_array(' + ','.join(
             f"(SELECT md5(COALESCE(string_agg(row_to_json(t)::text,'' ORDER BY row_to_json(t)::text),'')) FROM {t} t)" for t in tables) + ')::text;')
 
@@ -310,6 +331,7 @@ class Matrix:
                     'policy.view': {'policy.view', 'system.view_setting', 'moderation.review', 'moderation.view_queue'},
                     'policy.manage': {'policy.manage', 'system.edit_setting'},
                     'system.edit_setting': {'policy.manage', 'system.edit_setting'},
+                    'backup.view': {'backup.view', 'backup.manage'},
                 }.get(permission, {permission})
                 granted = base + [permission] if phase == 'ALLOWED' else sorted(set(self.codes) - alternatives)
                 self.grant(granted)
@@ -378,6 +400,8 @@ class Matrix:
                         expect(p.locator(component)).to_be_visible()
                     # Wait for actual data, so an absent button during loading
                     # cannot count as a denied-control pass.
+                    if route == '/system/database-backups':
+                        expect(p.locator('.schedule-form')).to_be_visible()
                     if route == '/plans':
                         expect(p.locator('.plan-name').first).to_be_visible()
                     if route == '/policies':
@@ -608,10 +632,15 @@ class Matrix:
 
     def finish(self):
         atomic_json(self.s.run_dir / 'rbac-coverage.json', {
-            'catalogue_permissions': self.codes, 'group_count': 16,
+            'catalogue_permissions': self.codes, 'group_count': len({c.split('.')[0] for c in self.codes}),
             'catalogue_only_permissions': sorted(CATALOGUE_ONLY),
-            'business_gap': 'None: all 50 permissions have real business API coverage.',
+            'business_gap': f'None: all {len(self.codes)} permissions have real business API coverage.',
             'requests': self.records, 'cases': self.s.report['cases'],
+        })
+        baseline = self.backup_schedule_baseline
+        self.call(self.admin, 'put', '/admin/database-backups/schedule', data={
+            'enabled': baseline['enabled'], 'frequency': baseline['frequency'],
+            'dayOfWeek': baseline['dayOfWeek'], 'time': baseline['time'],
         })
         self.grant(['dashboard.view'])
 

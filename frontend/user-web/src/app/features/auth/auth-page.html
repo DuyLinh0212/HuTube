@@ -121,7 +121,7 @@
         @default { {{ title }} }
       }
     </h2>
-    <p class="muted">@switch (mode()) { @case ('login') { {{ (admin ? 'auth.adminSubtitle' : 'auth.loginSubtitle') | translate }} } @case ('register') { {{ 'auth.registerSubtitle' | translate }} } @case ('verify-email') { {{ 'auth.verifySubtitle' | translate }} } @case ('forgot-password') { {{ 'auth.forgotSubtitle' | translate }} } @case ('reset-password') { {{ 'auth.resetSubtitle' | translate }} } }</p>
+    <p class="muted">@switch (mode()) { @case ('login') { {{ (admin ? 'auth.adminSubtitle' : 'auth.loginSubtitle') | translate }} } @case ('register') { {{ 'auth.registerSubtitle' | translate }} } @case ('verify-email') { {{ 'auth.verifySubtitle' | translate }} } @case ('forgot-password') { {{ authPageText('forgotSubtitle') }} } @case ('reset-password') { {{ authPageText('resetSubtitle') }} } }</p>
     @if (message()) { <app-result-notice tone="success" [message]="message()" /> }
     @if (error()) {
       <app-result-notice tone="error" [message]="error()" />
@@ -146,10 +146,10 @@
           @if (emailInput.invalid && emailInput.touched) { <p class="field-error">{{ 'auth.emailInvalid' | translate }}</p> }
         }
         @if (mode() === 'reset-password') {
-          <label for="resetCode">{{ 'auth.resetCode' | translate }}</label>
+          <label for="resetCode">{{ authPageText('resetCode') }}</label>
           <input id="resetCode" name="resetCode" type="text" inputmode="numeric" autocomplete="one-time-code" [(ngModel)]="code" #codeInput="ngModel" required minlength="8" maxlength="8" pattern="[0-9]{8}" aria-describedby="reset-code-hint" [attr.aria-invalid]="codeInput.invalid && codeInput.touched" />
-          <p id="reset-code-hint" class="field-hint">{{ 'auth.resetCodeHint' | translate }}</p>
-          @if (codeInput.invalid && codeInput.touched) { <p class="field-error">{{ 'auth.resetCodeInvalid' | translate }}</p> }
+          <p id="reset-code-hint" class="field-hint">{{ authPageText('resetCodeHint') }}</p>
+          @if (codeInput.invalid && codeInput.touched) { <p class="field-error">{{ authPageText('resetCodeInvalid') }}</p> }
         }
         @if (mode() !== 'forgot-password') {
           <div class="label-row"><label for="password">{{ mode() === 'reset-password' ? ('auth.password' | translate) : ('auth.password' | translate) }}</label>@if (mode() === 'login') { <a routerLink="/forgot-password">{{ 'auth.forgotPasswordLink' | translate }}</a> }</div>
@@ -160,7 +160,7 @@
           }
           @if (passwordInput.invalid && passwordInput.touched) { <p class="field-error">{{ (mode() === 'login' ? 'auth.passwordLoginRequired' : 'auth.passwordInvalid') | translate }}</p> }
         }
-        <button class="primary full" type="submit" [disabled]="busy()">{{ busy() ? ('common.loading' | translate) : mode() === 'forgot-password' ? ('auth.sendResetCode' | translate) : title }}</button>
+        <button class="primary full" type="submit" [disabled]="busy()">{{ busy() ? ('common.loading' | translate) : mode() === 'forgot-password' ? authPageText('sendResetCode') : title }}</button>
       </form>
       @if (mode() === 'login' && !admin && authGoogleClientId()) { <div class="oauth-divider" aria-hidden="true">{{ 'common.or' | translate }}</div><div #googleButton class="google-login" [attr.aria-label]="'auth.googleLogin' | translate"></div> }
     }
@@ -171,8 +171,8 @@
     <div class="auth-links">
       @if (mode() === 'login') { @if (!admin) { <p>{{ 'auth.dontHaveAccount' | translate }} <a routerLink="/register">{{ 'auth.registerBtn' | translate }}</a></p> } }
       @else { <a routerLink="/login">{{ 'auth.backToLogin' | translate }}</a> }
-      @if (mode() === 'forgot-password' && completed()) { <a routerLink="/reset-password" [queryParams]="{ email: email }">{{ 'auth.enterResetCode' | translate }}</a> }
-      @if (mode() === 'reset-password' && !completed()) { <a routerLink="/forgot-password" [queryParams]="{ email: email }">{{ 'auth.requestNewCode' | translate }}</a> }
+      @if (mode() === 'forgot-password' && completed()) { <a routerLink="/reset-password" [queryParams]="{ email: email }">{{ authPageText('enterResetCode') }}</a> }
+      @if (mode() === 'reset-password' && !completed()) { <a routerLink="/forgot-password" [queryParams]="{ email: email }">{{ authPageText('requestNewCode') }}</a> }
       @if (!admin && mode() === 'verify-email' && completed()) { <a href="hutube://auth/login">{{ 'auth.appLoginLink' | translate }}</a> }
     </div>
   </section>

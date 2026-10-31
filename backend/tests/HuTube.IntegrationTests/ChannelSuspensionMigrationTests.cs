@@ -21,8 +21,10 @@ public sealed class ChannelSuspensionMigrationTests
             var now = DateTimeOffset.UtcNow;
             var owner = new User { Username = "legacy_timer", Email = "legacy_timer@example.test", DisplayName = "Legacy owner",
                 PasswordHash = "unused", RoleId = UserRoles.User, Status = "active", CreatedAt = now, UpdatedAt = now };
-            db.Users.Add(owner);
-            await db.SaveChangesAsync();
+            await db.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO public.users (user_id, username, email, password_hash, display_name, status, role_id, created_at, updated_at)
+                VALUES ({owner.UserId}, {owner.Username}, {owner.Email}, {owner.PasswordHash}, {owner.DisplayName}, {owner.Status}, {UserRoles.User}, {now}, {now})
+                """);
             var id = Guid.NewGuid();
             await db.Database.ExecuteSqlInterpolatedAsync($"""
                 INSERT INTO public.channels (channel_id, owner_user_id, name, handle, settings, status, status_reason, created_at, updated_at)
