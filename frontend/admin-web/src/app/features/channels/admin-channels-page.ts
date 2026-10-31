@@ -28,6 +28,7 @@ import {
 })
 export class AdminChannelsPage implements OnInit {
   private readonly service = inject(AdminChannelsService);
+  private loadGeneration = 0;
   readonly auth = inject(AuthService);
   readonly i18n = inject(I18nService);
 
@@ -165,6 +166,7 @@ export class AdminChannelsPage implements OnInit {
   countLabel(value: number): string { return this.countsAvailable() ? this.formatNumber(value) : '—'; }
 
   load(page = this.page()): void {
+    const generation = ++this.loadGeneration;
     this.loading.set(true);
     this.error.set('');
     this.page.set(page);
@@ -186,6 +188,7 @@ export class AdminChannelsPage implements OnInit {
       })
       .subscribe({
         next: result => {
+          if (generation !== this.loadGeneration) return;
           if (result && result.items) {
             const enriched = result.items.map(ch => ({
               ...ch,
@@ -200,6 +203,7 @@ export class AdminChannelsPage implements OnInit {
           this.loading.set(false);
         },
         error: () => {
+          if (generation !== this.loadGeneration) return;
           this.channels.set([]);
           this.total.set(0);
           this.loading.set(false);

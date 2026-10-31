@@ -1,5 +1,6 @@
 """Real browser registration/login flows. Runtime config comes from run_local.py."""
 import argparse
+import html
 import json
 import os
 import re
@@ -35,6 +36,25 @@ def email_link(mail, recipient, origin, timeout_ms):
     raise TimeoutError("No verification email for the checkpoint account in the local Pickup folder.")
 
 
+def email_otp(mail, recipient, not_before, timeout_ms):
+    deadline = time.monotonic() + timeout_ms / 1000
+    while time.monotonic() < deadline:
+        for path in sorted(mail.glob("*.eml"), key=lambda p: p.stat().st_mtime, reverse=True):
+            if path.stat().st_mtime < not_before:
+                continue
+            message = BytesParser(policy=policy.default).parsebytes(path.read_bytes())
+            if recipient.lower() not in {email.lower() for _, email in getaddresses(message.get_all("to", []))}:
+                continue
+            part = message.get_body(preferencelist=("plain", "html"))
+            body = html.unescape(part.get_content() if part else "")
+            match = re.search(r"(?m)^Mã OTP: (?P<code>\d{8})\s*$", body)
+            if match:
+                assert "/reset-password?token=" not in body, "Password reset email must not contain a token link."
+                return match.group("code")
+        time.sleep(0.2)
+    raise TimeoutError("No password-reset OTP for the checkpoint account in the local Pickup folder.")
+
+
 def run(config):
     run_dir = Path(config["run_dir"])
     screenshots = ROOT / "screenshots" / run_dir.name; screenshots.mkdir(parents=True, exist_ok=True)
@@ -52,6 +72,7 @@ def run(config):
     registered_posts = 0
     login_posts = 0
     started = time.monotonic()
+    user_trace_stopped = False
     original_role = checkpoint.data.get("fixture_original_role")
     if original_role:
         db.restore_role(checkpoint.data["user_id"], original_role)
@@ -79,7 +100,7 @@ def run(config):
         destination = screenshots / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         page.screenshot(path=str(destination), full_page=True,
-                        animations="disabled", mask=[page.locator("input[type=password]")])
+                        animations="disabled", mask=[page.locator("input[type=password]"), page.locator("#resetCode")])
         application, module, flow = auth_scope(active_case_id)
         screenshot_entries.append({"application": application, "module": module, "flow": flow,
                                    "case_id": active_case_id, "step": name,
@@ -281,9 +302,51 @@ def run(config):
                     go(other, config["admin_url"], "/users")
                     expect(other).to_have_url(re.compile(r"/login(?:\?|$)")); shot(other, "18-admin-logout-guard")
                 execute("AUTH-ADMIN-03", "Admin logout và chặn protected route", admin_logout)
+
+                active_page = page
+                # The trace contains DOM snapshots; close it before typing the emailed OTP.
+                user.tracing.stop(path=str(run_dir / "user-pre-reset-trace.zip"))
+                user_trace_stopped = True
+                def password_reset_otp():
+                    original_password = account["password"]
+                    next_password = ("HuTubeE2EReset2026!B" if original_password == "HuTubeE2EReset2026!A"
+                                     else "HuTubeE2EReset2026!A")
+                    sent_at = time.time() - 1
+                    go(page, config["user_url"], "/forgot-password")
+                    page.locator("#email").fill(account["email"])
+                    with page.expect_response(lambda r: r.request.method == "POST" and r.url == config["api_url"] + "/auth/forgot-password",
+                                              timeout=config["timeouts_ms"]["api"]) as pending:
+                        page.locator("button[type=submit]").click()
+                    assert pending.value.status == 200
+                    expect(page.get_by_role("status")).to_contain_text("Nếu email có trong hệ thống")
+
+                    code = email_otp(state / "mail", account["email"], sent_at, config["timeouts_ms"]["email"])
+                    go(page, config["user_url"], "/reset-password?email=" + account["email"])
+                    expect(page.locator("#resetCode")).to_be_visible()
+                    page.locator("#resetCode").fill(code)
+                    page.locator("#password").fill(next_password)
+                    page.locator("#confirmPassword").fill(next_password)
+                    with page.expect_response(lambda r: r.request.method == "POST" and r.url == config["api_url"] + "/auth/reset-password",
+                                              timeout=config["timeouts_ms"]["api"]) as pending:
+                        page.locator("button[type=submit]").click()
+                    assert pending.value.status == 200
+                    expect(page.get_by_role("status")).to_be_visible()
+                    # Keep the checkpoint recoverable if the subsequent login assertions fail.
+                    account["password"] = next_password
+                    checkpoint.save()
+                    shot(page, "19-password-reset-otp-success")
+
+                    old_response = login(page, config["user_url"], original_password, 401)
+                    assert old_response["code"] == "INVALID_CREDENTIALS"
+                    expect(page.get_by_role("alert")).to_be_visible()
+                    new_response = login(page, config["user_url"], next_password, 200)
+                    assert new_response["user"]["userId"] == checkpoint.data["user_id"]
+                    expect(page).to_have_url(config["user_url"] + "/home")
+                execute("AUTH-RESET-OTP-01", "Đổi mật khẩu bằng OTP email và từ chối mật khẩu cũ", password_reset_otp)
                 assert not errors, "Unexpected JavaScript errors: " + "; ".join(errors)
             finally:
-                user.tracing.stop(path=str(run_dir / "user-trace.zip"))
+                if not user_trace_stopped:
+                    user.tracing.stop(path=str(run_dir / "user-trace.zip"))
                 admin.tracing.stop(path=str(run_dir / "admin-trace.zip"))
                 user.close(); admin.close(); browser.close()
     finally:

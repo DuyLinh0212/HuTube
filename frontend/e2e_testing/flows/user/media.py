@@ -20,26 +20,25 @@ def run(suite, owner, member):
         subprocess.run([ffmpeg, '-hide_banner', '-loglevel', 'error', '-f','lavfi','-i','testsrc2=size=640x360:rate=24','-f','lavfi','-i','sine=frequency=440:sample_rate=44100','-t',str(fixture_seconds),'-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-movflags','+faststart',str(fixture)],check=True,timeout=120)
     video = {}
     def upload():
+        expected_title = suite.state.get('video_title','HuTube E2E — Mẫu hình và âm thanh kiểm thử')
         existing_id = suite.state.get('video_id')
         if existing_id:
             existing = suite.api(owner, 'get', '/videos/' + existing_id)
-            if existing.status == 200:
+            if existing.status == 200 and existing.json().get('title') == expected_title:
                 video.update(existing.json())
                 suite.go(owner, '/watch/' + existing_id, 'app-watch-page')
                 return 'reused'
-            assert existing.status == 404
+            assert existing.status in (200, 404)
         suite.go(owner, '/studio/upload', 'app-video-upload-wizard')
         page.locator('.btn-wizard-next').click()
         expect(page.locator('[role=alert]')).to_be_visible()
         if hasattr(suite,'evidence'): suite.evidence(owner,'step1-required')
         page.locator('#videoFile').set_input_files(str(fixture))
         expect(page.locator('.file-name')).to_have_text(fixture.name)
-        # Browser metadata and quota preflight are asynchronous, finite states.
-        expect(page.locator('.progress-bar-labels')).to_contain_text('Sẵn sàng', timeout=45000)
-        expect(page.locator('.btn-wizard-next')).to_be_enabled(timeout=45000)
+        # The wizard auto-advances when browser metadata and quota preflight succeed.
+        # Wait for the details form instead of looking for the step-1 readiness label.
+        expect(page.locator('#videoTitle')).to_be_visible(timeout=45000)
         if hasattr(suite,'evidence'): suite.evidence(owner,'step1-file-ready')
-        page.locator('.btn-wizard-next').click()
-        expect(page.locator('#videoTitle')).to_be_visible()
         page.locator('#videoTitle').fill('')
         page.locator('.btn-wizard-next').click()
         expect(page.locator('#videoTitle')).to_be_visible()
@@ -73,7 +72,7 @@ def run(suite, owner, member):
             expect(page.locator('.step-6')).to_be_visible(timeout=120000)
         video.update(completed.value.json())
         assert video['videoId'] and video['visibility'] == 'private'
-        assert video['title'] == suite.state.get('video_title','HuTube E2E — Mẫu hình và âm thanh kiểm thử')
+        assert video['title'] == expected_title
         suite.state['video_id'] = video['videoId']; suite.save()
     suite.case(owner, 'U-STUDIO-UPLOAD-01', 'Upload video thật qua wizard; required và không hiện lịch đăng chưa hỗ trợ', upload,
                expected='POST 202 nhận xử lý nền; GET 200 và UI hoàn tất trả đúng video private; checkpoint ID, không tạo lại khi retry', data='FFmpeg 10s 640x360 + sine 440Hz')
