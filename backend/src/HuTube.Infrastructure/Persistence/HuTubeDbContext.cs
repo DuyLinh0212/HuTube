@@ -104,6 +104,7 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.Property(x => x.PasswordResetCreatedAt).HasColumnName("password_reset_created_at");
             b.Property(x => x.PasswordResetExpiresAt).HasColumnName("password_reset_expires_at");
             b.Property(x => x.PasswordResetUsedAt).HasColumnName("password_reset_used_at");
+            b.Property(x => x.PasswordResetFailedAttempts).HasColumnName("password_reset_failed_attempts");
             b.HasIndex(x => x.Email).IsUnique().HasDatabaseName("ux_users_email_ci");
             b.HasIndex(x => x.Username).IsUnique().HasDatabaseName("ux_users_username_ci");
             b.HasIndex(x => x.GoogleSubject).IsUnique().HasDatabaseName("ux_users_google_subject");

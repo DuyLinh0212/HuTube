@@ -136,7 +136,7 @@
     {
       "project": "HuTube.IntegrationTests",
       "file": "backend/tests/HuTube.IntegrationTests/AuthApiTests.cs",
-      "method": "ResetPassword_ValidLink_ShouldRevokeAllSessionsAndConsumeToken",
+      "method": "ResetPassword_ValidOtp_ShouldRevokeAllSessionsAndConsumeCode",
       "kind": "Fact",
       "inline_data_rows": 0
     },
@@ -220,7 +220,7 @@
     {
       "project": "HuTube.IntegrationTests",
       "file": "backend/tests/HuTube.IntegrationTests/AuthApiTests.cs",
-      "method": "ResetPassword_ConcurrentLinkUse_ShouldSucceedOnce",
+      "method": "ResetPassword_ConcurrentOtpUse_ShouldSucceedOnce",
       "kind": "Fact",
       "inline_data_rows": 0
     },
@@ -241,7 +241,14 @@
     {
       "project": "HuTube.IntegrationTests",
       "file": "backend/tests/HuTube.IntegrationTests/AuthApiTests.cs",
-      "method": "ResetPassword_ExpiredLink_ShouldReject",
+      "method": "ResetPassword_ExpiredOtp_ShouldReject",
+      "kind": "Fact",
+      "inline_data_rows": 0
+    },
+    {
+      "project": "HuTube.IntegrationTests",
+      "file": "backend/tests/HuTube.IntegrationTests/AuthApiTests.cs",
+      "method": "ResetPassword_WrongOtpConsumesAfterFiveAttempts",
       "kind": "Fact",
       "inline_data_rows": 0
     },

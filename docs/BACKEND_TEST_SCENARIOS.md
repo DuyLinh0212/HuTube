@@ -25,7 +25,7 @@ Evidence lần chạy nhóm CF/storage/worker ngày 05/10/2026: [integration-cf-
 | Unit/ModerationStrikeAndAppealTests | Strike expiry/revoke, trạng thái moderation/appeal và ràng buộc nghiệp vụ |
 | Unit/LocalStorageDownloadTests | Local public/private Save/OpenRead/Delete roundtrip bytes, idempotent delete và chặn path traversal ngoài upload root; provider/range/authorization API vẫn là tầng khác |
 | Unit/R2StorageTests | Adapter storage/read/delete/sign URL theo fake transport; không phải truy cập R2 thật |
-| Integration/AuthApiTests | Register pending/hash/free plan/unique case-insensitive; Google fake; login/platform/cookie/origin, refresh replay/concurrency/expiry, device/session revoke/IDOR, reset link reuse/concurrency, blocked account/admin, health/OpenAPI/migration |
+| Integration/AuthApiTests | Register pending/hash/free plan/unique case-insensitive; Google fake; login/platform/cookie/origin, refresh replay/concurrency/expiry, device/session revoke/IDOR, reset OTP wrong/expired/replay/concurrency and attempt cap, blocked account/admin, health/OpenAPI/migration |
 | Integration/ContentApiIntegrationTests | Upload/probe/quota concurrency; metadata, playback visibility, comments, playlists/library, account bio và creator flags; payment atomicity/idempotency; purge/restriction theo các method cụ thể |
 | Integration/ChunkUploadRecoveryTests | Durable manifest, khôi phục chunk sau restart, partial file/truncation, invalid start/path và active-processing cleanup |
 | Integration/CfSeederIntegrationTests | CF manifest replay/import/concurrency, multipart metadata/ownership, chunk protocol, completion exactly-once và retry |
@@ -82,7 +82,7 @@ Tiền điều kiện chung: database test, actor cố định có quyền rõ, 
 
 | Nhóm | Flow và các gap/biến thể cần xác nhận hoặc bổ sung | Trạng thái |
 | --- | --- | --- |
-| B-AUTH (15) | Register→pending→verify→login→refresh→logout; duplicate email/username chuẩn hóa, concurrent register chỉ một record/free history; pending/suspended/deleted; password min/max/hash không plaintext; verify/reset token hash, invalid/expired/replayed và hai request đồng thời; Google fake/real tách suite; login mobile/web/admin cookies/response đúng platform, origin thiếu/sai/preflight; JWT claim/permission giữa phiên; refresh rotation/replay descendants, max session/device reuse và revoked sessions. Account enumeration response, lockout/rate limit nếu được cấu hình | PASS |
+| B-AUTH (15) | Register→pending→verify→login→refresh→logout; duplicate email/username chuẩn hóa, concurrent register chỉ một record/free history; pending/suspended/deleted; password min/max/hash không plaintext; verify token hash and reset OTP hash, invalid/expired/replayed, attempt cap and concurrent consumption; Google fake/real tách suite; login mobile/web/admin cookies/response đúng platform, origin thiếu/sai/preflight; JWT claim/permission giữa phiên; refresh rotation/replay descendants, max session/device reuse và revoked sessions. Account enumeration response, lockout/rate limit nếu được cấu hình | PASS |
 | B-ACCOUNT (8) | GET/update profile/bio/avatar/preferences/password/sessions, tất cả preference fields có roundtrip; image content sniff/limit; change password revoke policy và version; revoke current/others/foreign ID không leak; simultaneous update không làm mất field ngoài patch; user ID download/export không gồm hash/token | PASS |
 | B-CHANNEL (25) | Create→settings/branding→invite→accept→role→remove; unique handle hoa thường, reserved/Unicode/bounds; owner membership và limit plan; avatar/banner/watermark validation/storage cleanup; invite normalized email, reuse/expiry/wrong actor; mọi member permission independently; owner không bị member delete; subscribe counts/idempotent; lock/delete tác động video/playback; analytics totals nhiều trang và ranges timezone | PASS |
 | B-VIDEO (22) | Upload nguồn thật mục 6→probe→processing→renditions→ready→playback→edit→delete; quota reservation đồng thời/release đúng, client quality/duration spoof không vượt server; MIME/extension/0 byte/truncated/container unsupported; visibility/allowComments; metadata clear values, chapter order/bounds/dedup, tags/category references; history/view/watchSeconds clamps/idempotency; job cancellation/restart/source cleanup, removed vs soft delete vs purge, source URL authorization; không trust client actor/owner | PASS |
@@ -376,7 +376,7 @@ Mapping mỗi method/path + variant đến test assertion và evidence; đủ c�
 - `LogoutOthers_TwoDevices_ShouldPreserveCurrentOnly` (Fact)
 - `LogoutAll_ShouldRevokeEverySessionAndWriteAuditLog` (Fact)
 - `RevokeSession_AnotherUsersSession_ShouldReject` (Fact)
-- `ResetPassword_ValidLink_ShouldRevokeAllSessionsAndConsumeToken` (Fact)
+- `ResetPassword_ValidOtp_ShouldRevokeAllSessionsAndConsumeCode` (Fact)
 - `ForgotPassword_UnknownEmail_ShouldReturnSameMessage` (Fact)
 - `Admin_OrdinaryUser_ShouldDenyApiAndLogin` (Fact)
 - `Admin_DisabledAfterLogin_ShouldBlockImmediately` (Fact)
@@ -392,10 +392,11 @@ Mapping mỗi method/path + variant đến test assertion và evidence; đủ c�
 - `RevokeSession_DeviceRotatedSinceList_ShouldRevokeReplacement` (Fact)
 - `Web_UserOriginWithAdminCookie_ShouldDenyCrossAppRefresh` (Fact)
 - `Logout_OldRotatedCookie_ShouldRevokeReplacement` (Fact)
-- `ResetPassword_ConcurrentLinkUse_ShouldSucceedOnce` (Fact)
+- `ResetPassword_ConcurrentOtpUse_ShouldSucceedOnce` (Fact)
 - `ProtectedApi_TamperedToken_ShouldReject` (Fact)
 - `ProtectedApi_ExpiredSignedToken_ShouldRejectEvenWithActiveSession` (Fact)
-- `ResetPassword_ExpiredLink_ShouldReject` (Fact)
+- `ResetPassword_ExpiredOtp_ShouldReject` (Fact)
+- `ResetPassword_WrongOtpConsumesAfterFiveAttempts` (Fact)
 - `Auth_RateLimitExceeded_ShouldReturnRetryContract` (Fact)
 
 ### backend/tests/HuTube.IntegrationTests/ChunkUploadRecoveryTests.cs
@@ -844,7 +845,7 @@ Mỗi dòng là một case chức năng riêng; chạy thêm các hậu tố m�
 
 | Case ID | Method/path | Credential / permission attribute | Arrange → Act → Assert chức năng | Trạng thái |
 | --- | --- | --- | --- | --- |
-| B-API-092 | `POST /api/v1/auth/forgot-password` | PUBLIC | Known/unknown email → cùng public message; chỉ known có reset token hash/email | PASS |
+| B-API-092 | `POST /api/v1/auth/forgot-password` | PUBLIC | Known/unknown email → cùng public message; known email nhận OTP, chỉ OTP hash chậm được lưu | PASS |
 | B-API-093 | `POST /api/v1/auth/google` | PUBLIC | Verified Google identity → create/link account và session đúng platform, default plan/history khi user mới | PASS |
 | B-API-094 | `POST /api/v1/auth/login` | PUBLIC | Verified active U1 + Platform/header khớp → session/JWT đúng device; web HttpOnly cookie, mobile refresh theo contract | PASS |
 | B-API-095 | `GET /api/v1/auth/login-history` | AUTH | U1 → login events/timestamp/device/IP/status theo filter/order, không history user khác | PASS |
@@ -855,7 +856,7 @@ Mỗi dòng là một case chức năng riêng; chạy thêm các hậu tố m�
 | B-API-100 | `POST /api/v1/auth/refresh` | PUBLIC + refresh/session credential theo platform | Refresh cookie/body đúng platform → một rotation, JWT/jti mới và replacement chain đúng | PASS |
 | B-API-101 | `POST /api/v1/auth/register` | PUBLIC | Email mới/password hợp lệ → 201 pending user, hash/token hash, một default plan/history và verification mail | PASS |
 | B-API-102 | `POST /api/v1/auth/resend-verification` | PUBLIC | Pending U1 → link mới, link cũ invalid; đúng recipient và response | PASS |
-| B-API-103 | `POST /api/v1/auth/reset-password` | PUBLIC | Valid reset token/new password → hash mới, consume token và revoke tất cả sessions | PASS |
+| B-API-103 | `POST /api/v1/auth/reset-password` | PUBLIC | Valid email/OTP/new password → hash mới, consume OTP và revoke tất cả sessions; OTP hết hạn 10 phút, tối đa 5 lần sai | PASS |
 | B-API-104 | `GET /api/v1/auth/sessions` | AUTH | U1 → active/device/session metadata đúng, không refresh token/hash | PASS |
 | B-API-105 | `DELETE /api/v1/auth/sessions/{sessionId}` | AUTH | U1 session target → revoke đúng device/replacement, giữ session user khác | PASS |
 | B-API-106 | `POST /api/v1/auth/verify-email` | PUBLIC | Token valid U1 → email verified và active đúng user; consume token một lần | PASS |
@@ -1137,7 +1138,7 @@ Các case dưới đây chạy thêm các biến thể mục 11 nếu áp dụng
 | B-AUTH.03 | P1 | Password 9/10/128/129 ký tự; thiếu hoa/thường/số từng lần | Chỉ chuỗi dài 10–128 và đủ nhóm ký tự hợp lệ; lỗi `INVALID_PASSWORD`; không plaintext DB/log | PASS |
 | B-AUTH.04 | P1 | Email sai, username trùng/Unicode, displayName rỗng/biên | Normalize/unique/validation đúng AuthRules và DTO; không 500; record hợp lệ giữ tên có dấu | PASS |
 | B-AUTH.05 | P0 | Verify token sai/expired/đã dùng; resend rồi dùng token cũ | Token cũ hết hiệu lực; không active sai user; token lưu dạng hash; lỗi và email count đúng | PASS |
-| B-AUTH.06 | P0 | Hai request dùng cùng verify hoặc reset token tại barrier | Token consume một lần; trạng thái user/password/session nhất quán; không hai success effect | PASS |
+| B-AUTH.06 | P0 | Hai request dùng cùng verify token hoặc reset OTP tại barrier | Credential consume một lần; trạng thái user/password/session nhất quán; không hai success effect | PASS |
 | B-AUTH.07 | P0 | Login pending/suspended/deleted; sai password 1–5 lần rồi đúng | Block theo status/lockout; không session mới khi bị chặn; hết lockout đúng mốc/config | PASS |
 | B-AUTH.08 | P0 | X-HuTube-Client web/mobile; X-HuTube-App admin; Platform khớp/lệch | Lệch 400 `CLIENT_PLATFORM_MISMATCH`; mobile trả refresh theo contract; web dùng HttpOnly cookie, response không refresh token | PASS |
 | B-AUTH.09 | P0 | Web cookie user/admin; Origin đúng/sai/thiếu; Development/Production | Cookie name/path/Secure/SameSite đúng AuthController; origin sai 403; thiếu origin theo contract thực tế; không refresh chéo app | PASS |

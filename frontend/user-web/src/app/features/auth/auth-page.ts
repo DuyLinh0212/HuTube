@@ -31,7 +31,7 @@ export class AuthPage implements AfterViewChecked {
   showPassword = false;
   showConfirmPassword = false;
   readonly verificationSuggested = signal(false);
-  email = ''; username = ''; displayName = ''; password = ''; confirmPassword = '';
+  email = ''; code = ''; username = ''; displayName = ''; password = ''; confirmPassword = '';
   private token = '';
   private verificationAttemptedToken = '';
   private routeStateKey = '';
@@ -55,13 +55,14 @@ export class AuthPage implements AfterViewChecked {
       const mode = segments[0]?.path || 'login';
       const email = this.route.snapshot.queryParamMap.get('email') || '';
       const token = this.route.snapshot.queryParamMap.get('token') || '';
-      const routeStateKey = `${mode}|${email}|${token}`;
+      const routeStateKey = `${mode}|${email}|${mode === 'verify-email' ? token : ''}`;
       if (routeStateKey === this.routeStateKey) return;
       this.routeStateKey = routeStateKey;
       this.mode.set(mode); this.googleRendered = false; this.googleLoading = false; this.message.set(''); this.error.set(''); this.completed.set(false); this.verificationSuggested.set(false); this.password = ''; this.confirmPassword = '';
       this.email = email;
+      this.code = '';
       this.showPassword = false; this.showConfirmPassword = false;
-      this.token = token;
+      this.token = mode === 'verify-email' ? token : '';
       if (this.route.snapshot.queryParamMap.get('reason') === 'expired') this.message.set(this.i18n.t('auth.sessionExpired'));
       const reason = this.route.snapshot.queryParamMap.get('reason');
       this.connectionIssue.set(reason === 'unavailable' || reason === 'rate-limited');
@@ -70,7 +71,6 @@ export class AuthPage implements AfterViewChecked {
         this.verificationAttemptedToken = this.token;
         this.verify();
       }
-      if (this.mode() === 'reset-password' && !this.token) this.error.set(this.i18n.t('auth.resetMissingToken'));
     });
   }
   startCarousel() {
@@ -116,14 +116,12 @@ export class AuthPage implements AfterViewChecked {
       const script = document.createElement('script'); script.src = 'https://accounts.google.com/gsi/client'; script.async = true; script.defer = true; script.dataset['hutubeGoogle'] = 'true'; script.onload = () => resolve(); script.onerror = () => reject(); document.head.appendChild(script);
     });
   }
-  get hasResetToken() { return !!this.token; }
   retryRestore() {
     this.run(this.auth.restore(), () => {
       this.connectionIssue.set(false);
       if (this.auth.accessToken()) void this.router.navigateByUrl(safeReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl')));
     });
   }
-  get mobileResetLink() { return 'hutube://auth/reset-password?token=' + encodeURIComponent(this.token); }
   private run(request: Observable<unknown>, success: () => void) {
     this.busy.set(true); this.error.set(''); this.message.set(''); this.verificationSuggested.set(false);
     request.pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false))).subscribe({ next: success, error: error => {
@@ -160,7 +158,7 @@ export class AuthPage implements AfterViewChecked {
         break;
       case 'register': this.run(this.auth.register({ username: this.username.trim(), email: this.email.trim(), displayName: this.displayName.trim(), password: this.password }), () => { this.completed.set(true); this.password = ''; this.confirmPassword = ''; this.message.set(this.i18n.t('auth.registerSuccess')); }); break;
       case 'forgot-password': this.run(this.auth.forgot(this.email.trim()), () => { this.message.set(this.i18n.t('auth.forgotSuccess')); this.completed.set(true); }); break;
-      case 'reset-password': if (this.token) this.run(this.auth.reset(this.token, this.password), () => { this.password = ''; this.confirmPassword = ''; this.completed.set(true); this.message.set(this.i18n.t('auth.resetSuccess')); }); break;
+      case 'reset-password': this.run(this.auth.reset(this.email.trim(), this.code.trim(), this.password), () => { this.password = ''; this.confirmPassword = ''; this.code = ''; this.completed.set(true); this.message.set(this.i18n.t('auth.resetSuccess')); }); break;
     }
   }
   verify() { this.run(this.auth.verify(this.token), () => { this.completed.set(true); this.message.set(this.i18n.t('auth.verifySuccess')); }); }

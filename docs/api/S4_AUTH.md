@@ -18,7 +18,7 @@ Auth response: `{accessToken, expiresAt, refreshToken, user}`. `refreshToken` nu
 | `POST /auth/verify-email` | Public | `{token}` → `{message}` |
 | `POST /auth/resend-verification` | Public | `{email}` → `{message}` |
 | `POST /auth/forgot-password` | Public | `{email}` → `{message}` |
-| `POST /auth/reset-password` | Public | `{token,password}` → `{message}`; thu hồi các phiên |
+| `POST /auth/reset-password` | Public | `{email,code,password}` → `{message}`; mã OTP 8 chữ số, hết hạn sau 10 phút, tối đa 5 lần nhập sai; thu hồi các phiên |
 | `POST /auth/login` | Public | `{email,password,platform,deviceName}` → auth response; platform `web`, `mobile`, `admin` |
 | `POST /auth/google` | Public | `{credential,platform,deviceName}` → auth response; chỉ `web` hoặc `mobile`; credential là Google ID token đã xác minh ở backend |
 | `POST /auth/refresh` | Cookie/token | `{refreshToken?}` → auth response |
@@ -29,7 +29,7 @@ Auth response: `{accessToken, expiresAt, refreshToken, user}`. `refreshToken` nu
 | `POST /auth/logout-others` | Bearer | `{message}`; giữ phiên hiện tại |
 | `DELETE /auth/sessions/{sessionId}` | Bearer, chủ phiên | `{message}` |
 
-Session list trả tập phiên của user hiện tại; không phải endpoint liệt kê mọi session hệ thống và không dùng pagination tổng quát. Register/login không có idempotency key: client phải chặn submit đôi. Verify/reset dùng token có thời hạn, không dùng lại token đã tiêu thụ. Resend/forgot giữ phản hồi chung để hạn chế lộ email đăng ký.
+Session list trả tập phiên của user hiện tại; không phải endpoint liệt kê mọi session hệ thống và không dùng pagination tổng quát. Register/login không có idempotency key: client phải chặn submit đôi. Email xác minh dùng link có thời hạn; đặt lại mật khẩu dùng OTP nhập trên giao diện, không phát link đổi mật khẩu. Resend/forgot giữ phản hồi chung để hạn chế lộ email đăng ký.
 
 ## Validation và lỗi
 
@@ -43,7 +43,7 @@ Access token từ session đã logout/revoke không tiếp tục truy cập API 
 
 | Code | HTTP | Trường hợp |
 | --- | --- | --- |
-| `INVALID_OR_EXPIRED_TOKEN` | 400 | Link verify/reset sai, hết hạn hoặc đã sử dụng |
+| `INVALID_OR_EXPIRED_TOKEN` | 400 | Link xác minh hoặc OTP đặt lại mật khẩu sai, hết hạn, đã dùng hay vượt số lần nhập |
 | `VALIDATION_ERROR`, `INVALID_EMAIL`, `INVALID_PASSWORD` | 400 | DTO hoặc quy tắc dữ liệu không đạt |
 | `CLIENT_PLATFORM_MISMATCH` | 400 | Header nhận diện client không khớp platform login |
 | `INVALID_GOOGLE_TOKEN` | 401 | Google ID token thiếu, sai, hết hạn hoặc email chưa được Google xác minh |
@@ -63,4 +63,4 @@ Access token từ session đã logout/revoke không tiếp tục truy cập API 
 
 ## Quy ước nền
 
-API mới dùng `/api/v1`, resource plural theo convention. Các list nghiệp vụ sau này theo pagination convention của backend; không trả toàn bộ bảng không giới hạn. Ghi thời gian UTC, không hard-delete user/channel trong luồng auth. Token thô không lưu trong DB/log; email development pickup có link chứa token nên phải nằm trong thư mục Git bỏ qua.
+API mới dùng `/api/v1`, resource plural theo convention. Các list nghiệp vụ sau này theo pagination convention của backend; không trả toàn bộ bảng không giới hạn. Ghi thời gian UTC, không hard-delete user/channel trong luồng auth. Secret xác minh/OTP thô không lưu trong DB/log; email development pickup có thông tin xác minh nhạy cảm nên phải nằm trong thư mục Git bỏ qua.

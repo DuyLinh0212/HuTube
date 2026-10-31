@@ -778,9 +778,10 @@ class AppStrings {
           'Liên kết thiếu mã xác minh. Hãy yêu cầu một email mới.',
       'auth.resetTitle': 'Đặt mật khẩu mới',
       'auth.resetDescription':
-          'Chọn mật khẩu mới, khác mật khẩu bạn dùng ở nơi khác.',
-      'auth.resetMissing':
-          'Liên kết thiếu mã đặt lại. Hãy yêu cầu một email mới.',
+          'Nhập mã OTP trong email và chọn mật khẩu mới.',
+      'auth.resetCodeField': 'Mã OTP',
+      'auth.resetCodeHint': 'Mã gồm 8 chữ số, có hiệu lực trong 10 phút.',
+      'auth.resetCodeInvalid': 'Nhập mã OTP gồm đúng 8 chữ số.',
       'auth.resendTitle': 'Gửi lại email xác minh',
       'auth.resendDescription': 'Nhập email bạn đã dùng để đăng ký Dalitu.',
       'auth.displayNameField': 'Tên hiển thị',
@@ -806,7 +807,7 @@ class AppStrings {
       'auth.resetSuccess':
           'Mật khẩu đã được đổi. Hãy đăng nhập bằng mật khẩu mới.',
       'auth.forgotSuccess':
-          'Nếu email thuộc tài khoản Dalitu, bạn sẽ nhận được liên kết đặt lại mật khẩu.',
+          'Nếu email thuộc tài khoản Dalitu, bạn sẽ nhận được mã OTP đặt lại mật khẩu.',
       'auth.resendSuccess':
           'Nếu tài khoản cần xác minh, chúng tôi đã gửi lại email. Kiểm tra cả thư rác.',
       'auth.accountMessage': 'Đăng nhập để tiếp tục đến tài khoản của bạn.',
@@ -831,7 +832,7 @@ class AppStrings {
       'auth.showPassword': 'Hiện mật khẩu',
       'auth.hidePassword': 'Ẩn mật khẩu',
       'auth.saveNewPassword': 'Lưu mật khẩu mới',
-      'auth.sendEmail': 'Gửi email',
+      'auth.sendEmail': 'Gửi mã OTP',
       'auth.createAccount': 'Tạo tài khoản',
       'auth.backHome': 'Về trang chủ',
       'common.validationError':
@@ -857,6 +858,7 @@ class AppStrings {
       'auth.resendVerification': 'Gửi lại email xác minh',
       'auth.restoreAgain': 'Thử khôi phục phiên lần nữa',
       'auth.requestNewLink': 'Yêu cầu liên kết mới',
+      'auth.requestNewCode': 'Yêu cầu mã OTP mới',
       'auth.backToLogin': 'Quay lại đăng nhập',
       'auth.noAccount': 'Chưa có tài khoản? Đăng ký',
       'auth.otherDevicesLoggedOut': 'Đã đăng xuất tất cả thiết bị khác.',
@@ -2391,9 +2393,10 @@ class AppStrings {
           'This link is missing a verification token. Request a new email.',
       'auth.resetTitle': 'Set a new password',
       'auth.resetDescription':
-          'Choose a new password that you do not use elsewhere.',
-      'auth.resetMissing':
-          'This link is missing a reset token. Request a new email.',
+          'Enter the OTP from your email and choose a new password.',
+      'auth.resetCodeField': 'OTP code',
+      'auth.resetCodeHint': 'The 8-digit code expires in 10 minutes.',
+      'auth.resetCodeInvalid': 'Enter the 8-digit OTP code.',
       'auth.resendTitle': 'Resend verification email',
       'auth.resendDescription':
           'Enter the email address you used to sign up for Dalitu.',
@@ -2419,7 +2422,7 @@ class AppStrings {
       'auth.verifySuccess': 'Email verified. You can sign in now.',
       'auth.resetSuccess': 'Password changed. Sign in with your new password.',
       'auth.forgotSuccess':
-          'If this email belongs to a Dalitu account, you will receive a reset link.',
+          'If this email belongs to a Dalitu account, you will receive a password reset OTP.',
       'auth.resendSuccess':
           'If your account needs verification, we sent another email. Check your spam folder too.',
       'auth.accountMessage': 'Sign in to continue to your account.',
@@ -2444,7 +2447,7 @@ class AppStrings {
       'auth.showPassword': 'Show password',
       'auth.hidePassword': 'Hide password',
       'auth.saveNewPassword': 'Save new password',
-      'auth.sendEmail': 'Send email',
+      'auth.sendEmail': 'Send OTP code',
       'auth.createAccount': 'Create account',
       'auth.backHome': 'Back to home',
       'common.validationError':
@@ -2470,6 +2473,7 @@ class AppStrings {
       'auth.resendVerification': 'Resend verification email',
       'auth.restoreAgain': 'Try restoring the session again',
       'auth.requestNewLink': 'Request a new link',
+      'auth.requestNewCode': 'Request a new OTP code',
       'auth.backToLogin': 'Back to sign in',
       'auth.noAccount': "Don't have an account? Sign up",
       'auth.otherDevicesLoggedOut': 'All other devices were signed out.',

@@ -903,8 +903,9 @@ chấp nhận host `auth` và các path đã whitelist:
 hutube://auth/account
 hutube://auth/login
 hutube://auth/verify-email?token=<token>
-hutube://auth/reset-password?token=<token>
 ```
+
+Đặt lại mật khẩu dùng OTP nhập trong ứng dụng/web; không mở luồng đổi mật khẩu bằng link/deep link.
 
 Luồng điều hướng auth hiện tại được quản lý bằng state nội bộ của
 `AuthScreen`; các màn hình feature được mở từ flow tài khoản/kênh. Khi thêm

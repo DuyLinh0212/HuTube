@@ -46,11 +46,14 @@ def run(suite, owner, admin):
                     expect(page.locator('#resendEmail')).to_have_class(__import__('re').compile('ng-invalid'))
                     assert not page.locator('#resendEmail').evaluate('(e)=>e.validity.valid')
                 else:
+                    expect(page.locator('#email')).to_be_visible()
+                    expect(page.locator('#resetCode')).to_be_visible()
+                    assert page.locator('#resetCode').input_value()==''
                     page.locator('button[type=submit]').click()
                     expect(page.locator('#password')).to_have_attribute('aria-invalid','true')
                 assert urlsplit(page.url).path in ('/verify-email','/reset-password')
                 case['steps']=['Open missing/invalid token route','Assert error or required fields','Ensure no false verification/reset success']
-            suite.case(guest,application.upper()+'-AUTH-TOKEN-'+str(['/verify-email','/verify-email?token=invalid-qc-token','/reset-password?token=invalid-qc-token'].index(route)+1),'AUTH-EXT-03',application+' '+route.split('?')[0]+' invalid/missing token','Invalid token/missing input cannot produce success or authenticated state',token,module='authentication')
+            suite.case(guest,application.upper()+'-AUTH-TOKEN-'+str(['/verify-email','/verify-email?token=invalid-qc-token','/reset-password?token=invalid-qc-token'].index(route)+1),'AUTH-EXT-03',application+' '+route.split('?')[0]+' invalid/missing verification token or reset OTP','Invalid verification token or missing reset OTP cannot produce success or authenticated state',token,module='authentication')
 
         routes=['/account','/playlists','/studio/upload'] if application=='user' else ['/users','/roles','/moderation/reports']
         for route in routes:

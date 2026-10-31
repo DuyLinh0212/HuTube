@@ -358,7 +358,7 @@ export class AuthService {
   }
   resend(email: string) { return this.post<Message>('/auth/resend-verification', { email }); }
   forgot(email: string) { return this.post<Message>('/auth/forgot-password', { email }); }
-  reset(token: string, password: string) { return this.post<Message>('/auth/reset-password', { token, password }).pipe(tap(() => this.clear())); }
+  reset(email: string, code: string, password: string) { return this.post<Message>('/auth/reset-password', { email, code, password }).pipe(tap(() => this.clear())); }
   sessions() { return this.http.get<{ items: Session[] }>(this.config.apiBaseUrl + '/auth/sessions'); }
   loginHistory(page = 1, pageSize = 20) {
     return this.http.get<LoginHistoryPage>(this.config.apiBaseUrl + '/auth/login-history', { params: { page, pageSize } });

@@ -223,8 +223,8 @@ void main() {
     expect(
       AuthLink.parse(
         Uri.parse('hutube://auth/reset-password?token=abc'),
-      )?.token,
-      'abc',
+      ),
+      isNull,
     );
     for (final url in [
       'https://evil.test/account',

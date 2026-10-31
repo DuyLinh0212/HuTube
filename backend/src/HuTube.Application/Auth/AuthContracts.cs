@@ -31,7 +31,8 @@ public sealed record GoogleLoginRequest(
     [StringLength(8)] string? CountryCode = null);
 public sealed record EmailRequest([Required, EmailAddress, StringLength(254)] string Email);
 public sealed record TokenRequest([Required, StringLength(256)] string Token);
-public sealed record ResetPasswordRequest([Required, StringLength(256)] string Token,
+public sealed record ResetPasswordRequest([Required, EmailAddress, StringLength(254)] string Email,
+    [Required, RegularExpression(@"^\d{8}$")] string Code,
     [Required, StringLength(128, MinimumLength = 10)] string Password);
 public sealed record RefreshRequest([StringLength(256)] string? RefreshToken = null, [StringLength(200)] string? DeviceName = null);
 public sealed record MessageResponse(string Message);

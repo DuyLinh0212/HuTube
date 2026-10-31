@@ -90,7 +90,7 @@ void main() {
       await links.close();
     },
   );
-  testWidgets('invalid reset link offers recovery and no token input', (
+  testWidgets('password-reset links are ignored because reset requires an OTP', (
     tester,
   ) async {
     final links = StreamController<Uri>();
@@ -102,7 +102,7 @@ void main() {
     await tester.pumpAndSettle();
     links.add(Uri.parse('hutube://auth/reset-password'));
     await tester.pumpAndSettle();
-    expect(find.text('Yêu cầu liên kết mới'), findsOneWidget);
+    expect(AuthLink.parse(Uri.parse('hutube://auth/reset-password')), isNull);
     expect(find.byType(TextFormField), findsNothing);
     await links.close();
   });

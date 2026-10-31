@@ -51,9 +51,8 @@ Access token chỉ ở bộ nhớ. Refresh token nằm trong `flutter_secure_sto
 - `hutube://auth/account`: yêu cầu đăng nhập rồi mở tài khoản.
 - `hutube://auth/login`
 - `hutube://auth/verify-email?token=<url-encoded-token>`
-- `hutube://auth/reset-password?token=<url-encoded-token>`
 
-Email mở trang web; trang xác minh/đặt lại có thể chuyển sang app bằng các URL trên. Sau đăng ký, màn kiểm tra hộp thư cho phép gửi lại email hoặc dán liên kết xác minh. Mobile chỉ nhận liên kết web đúng origin `AUTH_WEB_BASE_URL` (mặc định `https://dalitu.app`) hoặc scheme đã khai báo, trích token rồi gửi tới API của app. Truyền `--dart-define=AUTH_WEB_BASE_URL=...` khớp `Auth__WebBaseUrl` của backend khi đổi môi trường, ví dụ `http://localhost:4200` cho local. CI dùng biến `MOBILE_AUTH_WEB_BASE_URL` trong environment `mobile`. Không có API giả trả mã. Chế độ gửi email phụ thuộc cấu hình backend (SMTP hoặc pickup). Trên Android có thể kiểm tra routing bằng `adb shell am start -a android.intent.action.VIEW -d "hutube://auth/account" com.hutube.user_app`.
+Email xác minh có thể mở app bằng liên kết trên. Đặt lại mật khẩu không dùng deep link: nhập email để nhận OTP, sau đó nhập mã trong ứng dụng. Sau đăng ký, màn kiểm tra hộp thư cho phép gửi lại email hoặc dán liên kết xác minh. Mobile chỉ nhận liên kết xác minh đúng origin `AUTH_WEB_BASE_URL` (mặc định `https://dalitu.app`) hoặc scheme đã khai báo, trích token rồi gửi tới API của app. Truyền `--dart-define=AUTH_WEB_BASE_URL=...` khớp `Auth__WebBaseUrl` của backend khi đổi môi trường, ví dụ `http://localhost:4200` cho local. CI dùng biến `MOBILE_AUTH_WEB_BASE_URL` trong environment `mobile`. Không có API giả trả mã. Chế độ gửi email phụ thuộc cấu hình backend (SMTP hoặc pickup). Trên Android có thể kiểm tra routing bằng `adb shell am start -a android.intent.action.VIEW -d "hutube://auth/account" com.hutube.user_app`.
 
 Custom scheme phục vụ local. Trước khi phát hành, cấu hình HTTPS App Links / Universal Links với domain đã sở hữu để xác minh chủ ứng dụng.
 

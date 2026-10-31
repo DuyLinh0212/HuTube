@@ -64,7 +64,8 @@ void main() {
         'POST',
         '/auth/reset-password',
         body: {
-          'token': await emailToken(pickup, email, 'reset-password'),
+          'email': email,
+          'code': await emailCode(pickup, email),
           'password': 'ChangedSmoke123!',
         },
       );
@@ -103,4 +104,21 @@ Future<String> emailToken(String pickup, String email, String route) async {
   throw StateError(
     'Development email was not found for the smoke-test account.',
   );
+}
+
+Future<String> emailCode(String pickup, String email) async {
+  for (final file in Directory(pickup).listSync().whereType<File>()) {
+    final raw = await file.readAsString();
+    if (!raw.contains(email)) continue;
+    final sections = raw.split(RegExp(r'\r?\n\r?\n'));
+    var body = sections.skip(1).join('\n\n');
+    if (raw.contains('Content-Transfer-Encoding: base64')) {
+      body = utf8.decode(base64.decode(body.replaceAll(RegExp(r'\s'), '')));
+    } else {
+      body = body.replaceAll(RegExp(r'=\r?\n'), '').replaceAll('=3D', '=');
+    }
+    final match = RegExp(r'OTP:\s*(\d{8})').firstMatch(body);
+    if (match != null) return match.group(1)!;
+  }
+  throw StateError('Password-reset OTP email was not found for the smoke-test account.');
 }

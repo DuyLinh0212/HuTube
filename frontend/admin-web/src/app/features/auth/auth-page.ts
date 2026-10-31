@@ -26,18 +26,18 @@ export class AuthPage {
   readonly completed = signal(false);
   readonly connectionIssue = signal(false);
   showPassword = false;
-  email = ''; username = ''; displayName = ''; password = ''; confirmPassword = '';
+  email = ''; code = ''; username = ''; displayName = ''; password = ''; confirmPassword = '';
   private token = '';
   constructor() {
     this.route.url.pipe(takeUntilDestroyed()).subscribe(segments => {
-      this.mode.set(segments[0]?.path || 'login'); this.message.set(''); this.error.set(''); this.completed.set(false); this.password = ''; this.confirmPassword = '';
-      this.token = this.route.snapshot.queryParamMap.get('token') || '';
+      this.mode.set(segments[0]?.path || 'login'); this.message.set(''); this.error.set(''); this.completed.set(false); this.password = ''; this.confirmPassword = ''; this.code = '';
+      this.email = this.route.snapshot.queryParamMap.get('email') || '';
+      this.token = this.mode() === 'verify-email' ? this.route.snapshot.queryParamMap.get('token') || '' : '';
       if (this.route.snapshot.queryParamMap.get('reason') === 'expired') this.message.set(this.i18n.t('auth.expiredSession'));
       const reason = this.route.snapshot.queryParamMap.get('reason');
       this.connectionIssue.set(reason === 'unavailable' || reason === 'rate-limited');
       if (this.connectionIssue()) this.error.set(this.i18n.t(reason === 'rate-limited' ? 'auth.error.rateLimited' : 'auth.error.serverUnavailable'));
       if (this.mode() === 'verify-email' && this.token) this.verify();
-      if (this.mode() === 'reset-password' && !this.token) this.error.set(this.i18n.t('auth.resetTokenMissing'));
     });
   }
   get title(): string {
@@ -54,14 +54,12 @@ export class AuthPage {
         : mode === 'reset-password' ? 'resetPassword' : mode;
     return this.i18n.t(`auth.tagline.${suffix}`);
   }
-  get hasResetToken() { return !!this.token; }
   retryRestore() {
     this.run(this.auth.restore(), () => {
       this.connectionIssue.set(false);
       if (this.auth.accessToken()) void this.router.navigateByUrl(safeReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl')));
     });
   }
-  get mobileResetLink() { return 'hutube://auth/reset-password?token=' + encodeURIComponent(this.token); }
   private run(request: Observable<unknown>, success: () => void) {
     this.busy.set(true); this.error.set(''); this.message.set('');
     request.pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.busy.set(false))).subscribe({ next: success, error: error => this.error.set(errorMessage(error, this.i18n)) });
@@ -83,7 +81,7 @@ export class AuthPage {
         break;
       case 'register': this.run(this.auth.register({ username: this.username.trim(), email: this.email.trim(), displayName: this.displayName.trim(), password: this.password }), () => { this.completed.set(true); this.password = ''; this.confirmPassword = ''; this.message.set(this.i18n.t('auth.accountCreated')); }); break;
       case 'forgot-password': this.run(this.auth.forgot(this.email.trim()), () => { this.message.set(this.i18n.t('auth.checkResetEmail')); this.completed.set(true); }); break;
-      case 'reset-password': if (this.token) this.run(this.auth.reset(this.token, this.password), () => { this.password = ''; this.confirmPassword = ''; this.completed.set(true); this.message.set(this.i18n.t('auth.passwordChanged')); }); break;
+      case 'reset-password': this.run(this.auth.reset(this.email.trim(), this.code.trim(), this.password), () => { this.password = ''; this.confirmPassword = ''; this.code = ''; this.completed.set(true); this.message.set(this.i18n.t('auth.passwordChanged')); }); break;
     }
   }
   verify() { this.run(this.auth.verify(this.token), () => { this.completed.set(true); this.message.set(this.i18n.t('auth.emailVerified')); }); }

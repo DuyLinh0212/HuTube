@@ -78,7 +78,7 @@ void main() {
   );
 
   testWidgets(
-    'forgot password and reset submit correct token and clear old credentials',
+    'forgot password and reset submit the OTP and clear old credentials',
     (tester) async {
       final links = StreamController<Uri>();
       final calls = <String>[];
@@ -94,7 +94,8 @@ void main() {
             } else if (path.endsWith('/auth/reset-password')) {
               final body = jsonDecode(request.body) as Map;
               expect(body, {
-                'token': 'secret-reset',
+                'email': 'linh@example.com',
+                'code': '12345678',
                 'password': 'NewPassword123',
               });
             }
@@ -112,11 +113,14 @@ void main() {
         find.byKey(const ValueKey('Email')),
         'linh@example.com',
       );
-      await tester.tap(find.widgetWithText(FilledButton, 'Gửi email'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Gửi mã OTP'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Nếu email thuộc tài khoản'), findsOneWidget);
-      links.add(Uri.parse('hutube://auth/reset-password?token=secret-reset'));
-      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('Mã OTP')), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const ValueKey('Mã OTP')),
+        '12345678',
+      );
       await tester.enterText(
         find.byKey(const ValueKey('Mật khẩu mới')),
         'NewPassword123',

@@ -387,3 +387,15 @@
   color: var(--text-light, #64748b);
   opacity: 0.85;
 }
+
+.contact-email {
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.7rem;
+  line-height: 1.45;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+
+  span { color: var(--text-light, #64748b); }
+  &:hover { color: var(--primary); text-decoration: underline; }
+  &:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 2px; }
+}

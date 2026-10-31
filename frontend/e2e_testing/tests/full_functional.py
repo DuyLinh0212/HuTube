@@ -37,6 +37,22 @@ def pickup_link(config,email,route,not_before=0):
         time.sleep(.2)
     raise PrerequisiteMissing('Email Pickup did not contain the expected recipient/link; mailbox manual evidence is separate')
 
+def pickup_code(config,email,not_before=0):
+    deadline=time.monotonic()+30
+    while time.monotonic()<deadline:
+        for path in sorted(Path(config['mail_dir']).glob('*.eml'),key=lambda p:p.stat().st_mtime,reverse=True):
+            if path.stat().st_mtime<not_before:continue
+            message=BytesParser(policy=policy.default).parsebytes(path.read_bytes())
+            if email.lower() not in {e.lower() for _,e in getaddresses(message.get_all('to',[]))}:continue
+            part=message.get_body(preferencelist=('plain','html'))
+            body=html.unescape(part.get_content() if part else '')
+            match=re.search(r'(?m)^Mã OTP: (?P<code>\d{8})\s*$',body)
+            if match:
+                assert '/reset-password?token=' not in body,'Reset email must not contain a password-reset link'
+                return match.group('code')
+        time.sleep(.2)
+    raise PrerequisiteMissing('Email Pickup did not contain the expected recipient OTP; mailbox manual evidence is separate')
+
 def register(suite,config,key,db):
     guest=suite.actor('register-'+key,'user','guest');guest['api_url']=config['api_url']
     page=guest['page'];creds=suite.credentials[key]; checkpoint={}
@@ -129,13 +145,12 @@ def auth_deep(suite,config,actors):
         suite.go(guest,'/forgot-password','app-auth-page');page.locator('#email').fill(creds['email']);sent_at=time.time()
         existing=suite.response(guest,'/auth/forgot-password',lambda:page.locator('button[type=submit]').click(),method='POST').json()
         assert absent==existing,'Forgot-password leaks existence through contract'
-        link=pickup_link(config,creds['email'],'reset-password',sent_at)
-        page.goto(link);page.locator('#password').fill(new_password);page.locator('#confirmPassword').fill(new_password)
+        code=pickup_code(config,creds['email'],sent_at)
+        page.locator('a[href^="/reset-password"]').click()
+        page.locator('#resetCode').fill(code);page.locator('#password').fill(new_password);page.locator('#confirmPassword').fill(new_password)
         suite.response(guest,'/auth/reset-password',lambda:page.locator('button[type=submit]').click(),method='POST')
         expect(page.locator('app-result-notice[tone=success]')).to_be_visible()
-        # Token stays in memory; HTTP observers store path/status only.
-        page.goto(link);page.locator('#password').fill(original);page.locator('#confirmPassword').fill(original)
-        replay=suite.response(guest,'/auth/reset-password',lambda:page.locator('button[type=submit]').click(),method='POST',status=(400,409))
+        replay=suite.api(guest,'post','/auth/reset-password',data={'email':creds['email'],'code':code,'password':original},expected=(400,409))
         assert replay.status in (400,409)
         suite.go(guest,'/login','app-auth-page');page.locator('#email').fill(creds['email']);page.locator('#password').fill(original)
         suite.response(guest,'/auth/login',lambda:page.locator('button[type=submit]').click(),method='POST',status=401)
@@ -145,7 +160,7 @@ def auth_deep(suite,config,actors):
         suite.release_actor(member)
         actors['member']=logged
         case['resource_ids']=[member['identity']['userId']]
-        case['steps']=['Unknown/known email → identical response','Actual Pickup reset link → UI resets password','Consumed link replay denied','Old password 401; new password logs into same user ID']
+        case['steps']=['Unknown/known email → identical response','Actual recipient Pickup OTP → UI submits email, code and new password','Consumed OTP replay denied','Old password 401; new password logs into same user ID']
         case['mail_manual']='NOT_EXECUTED; Email Pickup automation only'
     suite.case(guest,'FULL-FORGOT-RESET-REPLAY','AUTH-EXT-01','Forgot/reset with recipient and replay checks','New password works, old/replayed credential cannot change identity',forgot_reset,module='authentication')
 

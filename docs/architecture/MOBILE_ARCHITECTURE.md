@@ -11,7 +11,7 @@ Mobile User App là Flutter client cho người dùng cuối. Ứng dụng phụ
 - tạo/quản lý channel;
 - gửi, nhận và xử lý channel invitation;
 - upload avatar/banner;
-- mở xác thực email và password reset qua deep link;
+- xác minh email qua deep link; đặt lại mật khẩu bằng OTP nhập trong ứng dụng;
 - hiển thị dữ liệu, loading, empty state và lỗi nhất quán;
 - mở rộng về video, playlist, notification và report.
 

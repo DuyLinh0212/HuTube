@@ -235,8 +235,8 @@ MAIL-MANUAL PASS chỉ vì Email Pickup đã nhận được message.
 | --- | --- | --- | --- | --- |
 | [ ] | AUTH-REG-03 | Đăng ký thành công gửi verification mail | Inbox row, full body, verify result | PLANNED |
 | [ ] | AUTH-VERIFY-01 | Link verify đúng recipient | Body/link, success, DB verified | PLANNED |
-| [ ] | AUTH-EXT-01 | Forgot password gửi reset mail | Inbox row, body, reset success | PLANNED |
-| [ ] | AUTH-EXT-02 | Reset link hết hạn/sai/replay | Email và từng error result | PLANNED |
+| [ ] | AUTH-EXT-01 | Forgot password gửi OTP, nhập mã và đặt lại mật khẩu | Inbox row, OTP đúng recipient, reset success, mật khẩu mới đăng nhập được | PLANNED |
+| [ ] | AUTH-EXT-02 | Reset OTP hết hạn/sai/replay | Email và từng error result | PLANNED |
 | [ ] | U-CHANNEL.04 | Owner invite member/editor | Invite mail, accept/decline, invitation ID | PLANNED |
 | [ ] | U-CHANNEL.05 | Notification/report/appeal nếu sản phẩm gửi mail | Mail và target/status đúng | PLANNED |
 | [ ] | A-USERS.02 | Lock/unlock hoặc role change notification nếu có | Mail recipient đúng actor | PLANNED |
@@ -308,9 +308,9 @@ Checklist route cho từng route group:
 
 | Checkbox | ID | Luồng chi tiết | Validation bắt buộc | Status |
 | --- | --- | --- | --- | --- |
-| [ ] | AUTH-EXT-01 | Forgot password bằng email đã có và email chưa có; mở mail; reset mật khẩu; login bằng mật khẩu mới/cũ | Không leak account existence; link đúng recipient; reset success; password cũ fail; manual mail screenshot | PLANNED |
+| [ ] | AUTH-EXT-01 | Forgot password bằng email đã có và email chưa có; nhập OTP nhận được qua mail; reset mật khẩu; login bằng mật khẩu mới/cũ | Không leak account existence; OTP đúng recipient; reset success; password cũ fail; manual mail screenshot | PLANNED |
 | [ ] | AUTH-EXT-02 | Password/email boundary, hoa-thường, whitespace, email invalid, password ngắn/dài, confirm/show-hide, double click, network fail | Không duplicate; không success giả; lỗi đúng field; request count đúng | PLANNED |
-| [ ] | AUTH-EXT-03 | Verify token sai, thiếu, hết hạn, đã dùng; back/forward; return URL | Không replay; không open external origin; admin không mở registration | PLANNED |
+| [ ] | AUTH-EXT-03 | Verify token sai, thiếu, hết hạn, đã dùng; reset OTP thiếu/sai/hết hạn/đã dùng; back/forward; return URL | Không replay; không open external origin; reset chỉ thành công với OTP hợp lệ; admin không mở registration | PLANNED |
 | [ ] | AUTH-EXT-04 | Lock/suspend/delete sau khi login; revoke session; đổi role giữa session; hai tab User/Admin | Refresh/current route/API bị chặn đúng; không leak dữ liệu; cookie không trộn platform | PLANNED |
 | [ ] | AUTH-EXT-05 | Google OAuth sandbox: cancel, credential sai/expired, unverified, linked, blocked | Nếu thiếu dependency đánh BLOCKED; local auth tắt Google không được tính OAuth PASS | BLOCKED nếu chưa có sandbox |
 

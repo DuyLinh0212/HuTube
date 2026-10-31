@@ -434,13 +434,14 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> resetPassword({
-    required String token,
+    required String email,
+    required String code,
     required String password,
   }) async {
     await api.request(
       'POST',
       '/auth/reset-password',
-      body: {'token': token, 'password': password},
+      body: {'email': email.trim(), 'code': code.trim(), 'password': password},
     );
     await clearSession();
   }

@@ -39,6 +39,7 @@ typedef AuthScreen = AppShell;
 class _AppShellState extends State<AppShell> {
   final _form = GlobalKey<FormState>();
   final _email = TextEditingController();
+  final _code = TextEditingController();
   final _password = TextEditingController();
   final _confirm = TextEditingController();
   final _username = TextEditingController();
@@ -135,6 +136,7 @@ class _AppShellState extends State<AppShell> {
       _verificationSuggested = false;
       _password.clear();
       _confirm.clear();
+      _code.clear();
       _verificationLink.clear();
       _hidden = true;
     });
@@ -216,7 +218,11 @@ class _AppShellState extends State<AppShell> {
           password: _password.text,
         );
       } else if (page == '/reset-password') {
-        await auth.resetPassword(token: token ?? '', password: _password.text);
+        await auth.resetPassword(
+          email: _email.text,
+          code: _code.text,
+          password: _password.text,
+        );
       } else if (page == '/verify-email') {
         await auth.verifyEmail(token ?? '');
       } else if (page == '/forgot-password') {
@@ -242,6 +248,12 @@ class _AppShellState extends State<AppShell> {
           _token = null;
           _password.clear();
           _confirm.clear();
+          _code.clear();
+        }
+        if (page == '/forgot-password') {
+          _page = '/reset-password';
+          _token = null;
+          _code.clear();
         }
       });
     });
@@ -343,6 +355,7 @@ class _AppShellState extends State<AppShell> {
     _subscription?.cancel();
     for (final c in [
       _email,
+      _code,
       _password,
       _confirm,
       _username,
@@ -738,8 +751,7 @@ class _AppShellState extends State<AppShell> {
     final login = _page == '/login';
     final reset = _page == '/reset-password';
     final verify = _page == '/verify-email';
-    final missingToken =
-        (reset || verify) && (_token == null || _token!.isEmpty);
+    final missingToken = verify && (_token == null || _token!.isEmpty);
     final title = switch (_page) {
       '/login' => AppStrings.t('auth.loginTitle'),
       '/register' => AppStrings.t('auth.createAccount'),
@@ -758,10 +770,7 @@ class _AppShellState extends State<AppShell> {
         missingToken
             ? AppStrings.t('auth.verifyMissing')
             : AppStrings.t('auth.verifyDescription'),
-      '/reset-password' =>
-        missingToken
-            ? AppStrings.t('auth.resetMissing')
-            : AppStrings.t('auth.resetDescription'),
+      '/reset-password' => AppStrings.t('auth.resetDescription'),
       _ => AppStrings.t('auth.loginDescription'),
     };
 
@@ -825,7 +834,7 @@ class _AppShellState extends State<AppShell> {
                       : AppStrings.t('auth.usernameInvalid'),
                 ),
               ],
-              if (!reset && !verify)
+              if (!verify)
                 _field(
                   _email,
                   AppStrings.t('auth.emailField'),
@@ -837,6 +846,30 @@ class _AppShellState extends State<AppShell> {
                       ? null
                       : AppStrings.t('auth.emailInvalid'),
                 ),
+              if (reset) ...[
+                _field(
+                  _code,
+                  AppStrings.t('auth.resetCodeField'),
+                  icon: Icons.pin_outlined,
+                  numeric: true,
+                  validator: (v) => RegExp(r'^\d{8}$')
+                          .hasMatch((v ?? '').trim())
+                      ? null
+                      : AppStrings.t('auth.resetCodeInvalid'),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: Text(
+                    AppStrings.t('auth.resetCodeHint'),
+                    style: TextStyle(
+                      color: isDark
+                          ? AppColors.darkTextMuted
+                          : AppColors.textMuted,
+                      fontSize: 12.5,
+                    ),
+                  ),
+                ),
+              ],
               if ((login || register || reset) && !missingToken) ...[
                 _field(
                   _password,
@@ -1145,6 +1178,16 @@ class _AppShellState extends State<AppShell> {
               ),
             ),
           ),
+        if (reset && !missingToken)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Center(
+              child: TextButton(
+                onPressed: _busy ? null : () => _navigate('/forgot-password'),
+                child: Text(AppStrings.t('auth.requestNewCode')),
+              ),
+            ),
+          ),
       ],
     ];
   }
@@ -1154,6 +1197,7 @@ class _AppShellState extends State<AppShell> {
     String label, {
     IconData? icon,
     bool email = false,
+    bool numeric = false,
     bool secret = false,
     String? Function(String?)? validator,
   }) {
@@ -1168,7 +1212,17 @@ class _AppShellState extends State<AppShell> {
         obscureText: secret && _hidden,
         autocorrect: !secret && !email,
         enableSuggestions: !secret,
-        keyboardType: email ? TextInputType.emailAddress : TextInputType.text,
+        keyboardType: email
+            ? TextInputType.emailAddress
+            : numeric
+            ? TextInputType.number
+            : TextInputType.text,
+        inputFormatters: numeric
+            ? [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(8),
+              ]
+            : null,
         autofillHints: email
             ? [AutofillHints.email]
             : secret

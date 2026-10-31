@@ -221,16 +221,16 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
         await AssertCodeAsync(await Bearer(client, first.AccessToken).DeleteAsync("/api/v1/auth/sessions/" + sessions!.Items[0].SessionId), HttpStatusCode.NotFound, "SESSION_NOT_FOUND");
     }
     [Fact]
-    public async Task ResetPassword_ValidLink_ShouldRevokeAllSessionsAndConsumeToken()
+    public async Task ResetPassword_ValidOtp_ShouldRevokeAllSessionsAndConsumeCode()
     {
         var (client, email, _) = await RegisterAsync(); var login = await LoginAsync(client, email);
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/v1/auth/forgot-password", new { email })).StatusCode);
-        var token = factory.Emails.Token(email);
-        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/v1/auth/reset-password", new { token, password = "NewPassword42!" })).StatusCode);
+        var code = factory.Emails.Code(email);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/v1/auth/reset-password", new { email, code, password = "NewPassword42!" })).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await Bearer(client, login.AccessToken).GetAsync("/api/v1/auth/me")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/v1/auth/login", new { email, password = Password, platform = "mobile" })).StatusCode);
         await LoginAsync(client, email, "NewPassword42!");
-        await AssertCodeAsync(await client.PostAsJsonAsync("/api/v1/auth/reset-password", new { token, password = Password }), HttpStatusCode.BadRequest, "INVALID_OR_EXPIRED_TOKEN");
+        await AssertCodeAsync(await client.PostAsJsonAsync("/api/v1/auth/reset-password", new { email, code, password = Password }), HttpStatusCode.BadRequest, "INVALID_OR_EXPIRED_TOKEN");
     }
     [Fact]
     public async Task ForgotPassword_UnknownEmail_ShouldReturnSameMessage()
@@ -373,11 +373,11 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
     }
 
     [Fact]
-    public async Task ResetPassword_ConcurrentLinkUse_ShouldSucceedOnce()
+    public async Task ResetPassword_ConcurrentOtpUse_ShouldSucceedOnce()
     {
         var (client, email, _) = await RegisterAsync();
-        await client.PostAsJsonAsync("/api/v1/auth/forgot-password", new { email }); var token = factory.Emails.Token(email);
-        var responses = await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => client.PostAsJsonAsync("/api/v1/auth/reset-password", new { token, password = "NextPassword42!" })));
+        await client.PostAsJsonAsync("/api/v1/auth/forgot-password", new { email }); var code = factory.Emails.Code(email);
+        var responses = await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => client.PostAsJsonAsync("/api/v1/auth/reset-password", new { email, code, password = "NextPassword42!" })));
         Assert.Single(responses, x => x.StatusCode == HttpStatusCode.OK); Assert.Single(responses, x => x.StatusCode == HttpStatusCode.BadRequest);
     }
 
@@ -402,12 +402,29 @@ public sealed class AuthApiTests(AuthApiFactory factory) : IClassFixture<AuthApi
     }
 
     [Fact]
-    public async Task ResetPassword_ExpiredLink_ShouldReject()
+    public async Task ResetPassword_ExpiredOtp_ShouldReject()
     {
         var (client, email, id) = await RegisterAsync(); await client.PostAsJsonAsync("/api/v1/auth/forgot-password", new { email });
+        var code = factory.Emails.Code(email);
         await using var db = factory.CreateDb();
         await db.Users.Where(x => x.UserId == id).ExecuteUpdateAsync(s => s.SetProperty(x => x.PasswordResetCreatedAt, DateTimeOffset.UtcNow.AddDays(-2)).SetProperty(x => x.PasswordResetExpiresAt, DateTimeOffset.UtcNow.AddDays(-1)));
-        await AssertCodeAsync(await client.PostAsJsonAsync("/api/v1/auth/reset-password", new { token = factory.Emails.Token(email), password = "NextPassword42!" }), HttpStatusCode.BadRequest, "INVALID_OR_EXPIRED_TOKEN");
+        await AssertCodeAsync(await client.PostAsJsonAsync("/api/v1/auth/reset-password", new { email, code, password = "NextPassword42!" }), HttpStatusCode.BadRequest, "INVALID_OR_EXPIRED_TOKEN");
+    }
+
+    [Fact]
+    public async Task ResetPassword_WrongOtpConsumesAfterFiveAttempts()
+    {
+        var (client, email, id) = await RegisterAsync();
+        await client.PostAsJsonAsync("/api/v1/auth/forgot-password", new { email });
+        var code = factory.Emails.Code(email);
+        var wrongCode = code == "00000000" ? "00000001" : "00000000";
+        for (var attempt = 0; attempt < 5; attempt++)
+            await AssertCodeAsync(await client.PostAsJsonAsync("/api/v1/auth/reset-password", new { email, code = wrongCode, password = "NextPassword42!" }), HttpStatusCode.BadRequest, "INVALID_OR_EXPIRED_TOKEN");
+        await AssertCodeAsync(await client.PostAsJsonAsync("/api/v1/auth/reset-password", new { email, code, password = "NextPassword42!" }), HttpStatusCode.BadRequest, "INVALID_OR_EXPIRED_TOKEN");
+        await using var db = factory.CreateDb();
+        var user = await db.Users.SingleAsync(x => x.UserId == id);
+        Assert.Equal(5, user.PasswordResetFailedAttempts);
+        Assert.NotNull(user.PasswordResetUsedAt);
     }
 
     [Fact]

@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Security.Cryptography;
 using HuTube.Domain.Users;
 
 namespace HuTube.Application.Auth;
@@ -10,6 +12,10 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
     private static readonly MessageResponse EmailSent = new("Nếu email phù hợp, hướng dẫn đã được gửi. Vui lòng kiểm tra hộp thư.");
     private static AuthException InvalidRefresh() => new(401, "INVALID_REFRESH_TOKEN", "Phiên đã hết hạn. Vui lòng đăng nhập lại.");
     private static AuthException InvalidLink() => new(400, "INVALID_OR_EXPIRED_TOKEN", "Liên kết đã hết hạn hoặc đã được sử dụng. Vui lòng yêu cầu liên kết mới.");
+    private static AuthException InvalidResetCode() => new(400, "INVALID_OR_EXPIRED_TOKEN", "Mã OTP không hợp lệ hoặc đã hết hạn. Hãy yêu cầu mã mới.");
+    private const int ResetCodeLength = 8;
+    private const int MaxResetCodeAttempts = 5;
+    private static readonly TimeSpan ResetCodeLifetime = TimeSpan.FromMinutes(10);
 
     public async Task<MessageResponse> RegisterAsync(RegisterRequest request, CancellationToken ct = default)
     {
@@ -222,19 +228,18 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
         var user = await store.FindUserAsync(candidate.UserId, ct);
         if (user == null || user.IsBlocked || user.EmailVerifiedAt == null) return EmailSent;
         await store.InvalidateTokensAsync(user.UserId, true, Now, ct);
-        var raw = tokens.CreateOpaqueToken();
-        store.AddReset(user, new() { UserId = user.UserId, TokenHash = tokens.HashToken(raw), CreatedAt = Now, ExpiresAt = Now.AddMinutes(30) });
+        var code = RandomNumberGenerator.GetInt32(0, 100_000_000)
+            .ToString($"D{ResetCodeLength}", CultureInfo.InvariantCulture);
+        store.AddReset(user, new() { UserId = user.UserId, TokenHash = passwords.Hash(code), CreatedAt = Now, ExpiresAt = Now.Add(ResetCodeLifetime) });
         await store.SaveAsync(ct);
-        var resetUrl = $"{options.WebBaseUrl.TrimEnd('/')}/reset-password?token={Uri.EscapeDataString(raw)}";
         await emailSender.SendTemplateAsync(user.Email, new(
-            "Đặt lại mật khẩu Dalitu",
+            "Mã OTP đặt lại mật khẩu Dalitu",
             "BẢO MẬT TÀI KHOẢN",
-            "Đặt lại mật khẩu Dalitu",
+            "Xác nhận yêu cầu đổi mật khẩu",
             ["Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản Dalitu của bạn.",
-             "Liên kết này chỉ có hiệu lực trong 30 phút.",
-             "Nếu bạn không yêu cầu thay đổi mật khẩu, hãy bỏ qua email này."],
-            "Đặt lại mật khẩu",
-            resetUrl), ct);
+             $"Mã OTP: {code}",
+             "Mã chỉ có hiệu lực trong 10 phút và chỉ được nhập sai tối đa 5 lần.",
+             "Không chia sẻ mã này với bất kỳ ai. Nếu bạn không yêu cầu đổi mật khẩu, hãy bỏ qua email này."]), ct);
         await transaction.CommitAsync(ct);
         return EmailSent;
     }
@@ -242,15 +247,29 @@ public sealed class AuthService(IAuthStore store, IPasswordService passwords, IT
     public async Task<MessageResponse> ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct = default)
     {
         AuthRules.ValidatePassword(request.Password);
-        var hash = tokens.HashToken(request.Token);
-        var candidate = await store.FindResetAsync(hash, ct) ?? throw InvalidLink();
+        var candidate = await store.FindUserByEmailAsync(AuthRules.NormalizeEmail(request.Email), ct)
+            ?? throw InvalidResetCode();
         await using var transaction = await store.LockUserAsync(candidate.UserId, ct);
-        var token = await store.FindResetAsync(hash, ct) ?? throw InvalidLink();
-        if (token.UsedAt != null || token.ExpiresAt <= Now) throw InvalidLink();
-        var user = await store.FindUserAsync(token.UserId, ct) ?? throw InvalidLink();
+        var user = await store.FindUserAsync(candidate.UserId, ct) ?? throw InvalidResetCode();
+        if (string.IsNullOrWhiteSpace(user.PasswordResetTokenHash)
+            || user.PasswordResetUsedAt != null
+            || user.PasswordResetExpiresAt is not { } expiresAt
+            || expiresAt <= Now
+            || user.PasswordResetFailedAttempts >= MaxResetCodeAttempts)
+            throw InvalidResetCode();
+        if (!passwords.Verify(request.Code, user.PasswordResetTokenHash))
+        {
+            user.PasswordResetFailedAttempts++;
+            if (user.PasswordResetFailedAttempts >= MaxResetCodeAttempts)
+                user.PasswordResetUsedAt = Now;
+            await store.SaveAsync(ct);
+            await transaction.CommitAsync(ct);
+            throw InvalidResetCode();
+        }
         EnsureActive(user);
         user.PasswordHash = passwords.Hash(request.Password); user.UpdatedAt = Now;
-        user.FailedLoginAttempts = 0; user.LockedUntil = null; token.UsedAt = Now;
+        user.FailedLoginAttempts = 0; user.LockedUntil = null; user.PasswordResetUsedAt = Now;
+        user.PasswordResetFailedAttempts = 0;
         await store.InvalidateTokensAsync(user.UserId, true, Now, ct);
         foreach (var session in await store.GetSessionsAsync(user.UserId, ct)) session.Revoke(Now, "password-reset");
         await store.SaveAsync(ct); await transaction.CommitAsync(ct);

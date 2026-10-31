@@ -22,9 +22,15 @@
           <p id="username-hint" class="field-hint">{{ 'auth.usernameHint' | translate }}</p>
           @if (handle.invalid && handle.touched) { <p class="field-error">{{ 'auth.usernameInvalid' | translate }}</p> }
         }
-        @if (mode() !== 'reset-password') {
+        @if (mode() !== 'verify-email') {
           <label for="email">{{ 'auth.email' | translate }}</label><input id="email" name="email" type="email" [(ngModel)]="email" #emailInput="ngModel" (input)="syncAutofilledEmailControl(emailInput)" (change)="syncAutofilledEmailControl(emailInput)" (blur)="syncAutofilledEmailControl(emailInput)" required email maxlength="254" autocomplete="email" [attr.aria-invalid]="emailInput.invalid && emailInput.touched" />
           @if (emailInput.invalid && emailInput.touched) { <p class="field-error">{{ 'auth.emailInvalid' | translate }}</p> }
+        }
+        @if (mode() === 'reset-password') {
+          <label for="resetCode">{{ 'auth.resetCode' | translate }}</label>
+          <input id="resetCode" name="resetCode" type="text" inputmode="numeric" autocomplete="one-time-code" [(ngModel)]="code" #codeInput="ngModel" required minlength="8" maxlength="8" pattern="[0-9]{8}" aria-describedby="reset-code-hint" [attr.aria-invalid]="codeInput.invalid && codeInput.touched" />
+          <p id="reset-code-hint" class="field-hint">{{ 'auth.resetCodeHint' | translate }}</p>
+          @if (codeInput.invalid && codeInput.touched) { <p class="field-error">{{ 'auth.resetCodeInvalid' | translate }}</p> }
         }
         @if (mode() !== 'forgot-password') {
           <div class="label-row"><label for="password">{{ (mode() === 'reset-password' ? 'auth.newPassword' : 'auth.password') | translate }}</label>@if (mode() === 'login') { <a routerLink="/forgot-password">{{ 'auth.forgotPassword' | translate }}</a> }</div>
@@ -35,7 +41,7 @@
           }
           @if (passwordInput.invalid && passwordInput.touched) { <p class="field-error">{{ (mode() === 'login' ? 'auth.passwordRequired' : 'auth.passwordInvalid') | translate }}</p> }
         }
-        <button class="primary full" type="submit" [disabled]="busy() || (mode() === 'reset-password' && !hasResetToken)">{{ busy() ? ('auth.submitBusy' | translate) : mode() === 'forgot-password' ? ('auth.sendResetLink' | translate) : title }}</button>
+        <button class="primary full" type="submit" [disabled]="busy()">{{ busy() ? ('auth.submitBusy' | translate) : mode() === 'forgot-password' ? ('auth.sendResetCode' | translate) : title }}</button>
       </form>
     }
     @if (mode() === 'verify-email' && !completed()) {
@@ -45,8 +51,8 @@
     <div class="auth-links">
       @if (mode() === 'login') { @if (!admin) { <p>{{ 'auth.noAccount' | translate }} <a routerLink="/register">{{ 'auth.registerLink' | translate }}</a></p> } <a routerLink="/verify-email">{{ 'auth.resendVerification' | translate }}</a> }
       @else { <a routerLink="/login">{{ 'auth.backToLogin' | translate }}</a> }
-      @if (mode() === 'reset-password' && !completed()) { <a routerLink="/forgot-password">{{ 'auth.requestNewLink' | translate }}</a> }
-      @if (!admin && mode() === 'reset-password' && hasResetToken && !completed()) { <a [href]="mobileResetLink">{{ 'auth.openApp' | translate }}</a> }
+      @if (mode() === 'forgot-password' && completed()) { <a routerLink="/reset-password" [queryParams]="{ email: email }">{{ 'auth.enterResetCode' | translate }}</a> }
+      @if (mode() === 'reset-password' && !completed()) { <a routerLink="/forgot-password" [queryParams]="{ email: email }">{{ 'auth.requestNewCode' | translate }}</a> }
       @if (!admin && mode() === 'verify-email' && completed()) { <a href="hutube://auth/login">{{ 'auth.signInApp' | translate }}</a> }
     </div>
   </section>

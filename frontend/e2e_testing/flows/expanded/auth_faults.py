@@ -3,7 +3,7 @@ from urllib.parse import urlsplit,quote
 from playwright.sync_api import expect
 from support.local_db import LocalDb
 from flows.expanded.common import case,snapshot_module
-from tests.full_functional import pickup_link
+from tests.full_functional import pickup_code
 
 def run(suite,config,actors):
     snapshot_module(suite,__file__);db=LocalDb(config)
@@ -82,16 +82,18 @@ def run(suite,config,actors):
     actor=guest('reset-expired')
     def reset_expired(entry):
         credentials=suite.credentials['member'];uid=actors['member']['identity']['userId']
+        sent=time.time()
         suite.api(actor,'post','/auth/forgot-password',data={'email':credentials['email']})
-        link=pickup_link(config,credentials['email'],'reset-password')
+        code=pickup_code(config,credentials['email'],sent)
         db.sql("UPDATE users SET password_reset_expires_at=now()-interval '1 second' WHERE user_id=:'uid'::uuid;",{'uid':uid})
-        p=actor['page'];p.goto(link);expect(p.locator('#password')).to_be_visible()
+        p=actor['page'];suite.go(actor,'/reset-password?email='+credentials['email'],'app-auth-page');expect(p.locator('#resetCode')).to_be_visible()
+        p.locator('#resetCode').fill(code)
         for name in ['password','confirmPassword']:p.locator('#'+name).fill('QCExpiredMustNotApply2026!')
         suite.response(actor,'/auth/reset-password',lambda:p.locator('button[type=submit]').click(),method='POST',status=400)
         expect(p.locator('[role=alert]')).to_be_visible();suite.api(actors['member'],'get','/auth/me')
-        entry['resource_ids']=[uid];entry['fixture_preparation']='Only the existing synthetic Member reset expiry clock is set to past; password and result are not seeded'
-        entry['steps']=['Real forgot request and recipient Pickup link','Expired fixture clock','Actual reset UI 400 with visible error','Existing authenticated Member remains valid']
-    case(suite,actor,'AUTH-RESET-EXPIRED-NO-MUTATION','AUTH-EXT-03','Expired reset token cannot replace a password or revoke valid sessions',reset_expired,'authentication')
+        entry['resource_ids']=[uid];entry['fixture_preparation']='Only the existing synthetic Member OTP expiry clock is set to past; password and result are not seeded'
+        entry['steps']=['Real forgot request and recipient Pickup OTP','Expired fixture clock','Actual reset UI 400 with visible error','Existing authenticated Member remains valid']
+    case(suite,actor,'AUTH-RESET-EXPIRED-NO-MUTATION','AUTH-EXT-03','Expired reset OTP cannot replace a password or revoke valid sessions',reset_expired,'authentication')
     suite.release_actor(actor)
     actor=guest('field-boundaries')
     for label,selector,value in [

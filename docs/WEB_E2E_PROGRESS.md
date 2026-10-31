@@ -13,6 +13,8 @@
 **Tổng số ca kiểm thử con đã ghi nhận:** 126 run, 1.423 lượt PASS (10–16/10) + 21 ca delta (17/10). Khử trùng logical ID đạt **902 logical case ID duy nhất (100% PASS)**.\
 **Bằng chứng hình ảnh Responsive:** **8.629 screenshots** phủ đủ 3 viewport Desktop (1440×960), Mobile (390×844), Tablet (768×1024).\
 
+> Cập nhật 31/10/2026: Luồng quên mật khẩu đã chuyển từ link sang OTP nhập trên giao diện. Các kịch bản E2E AUTH-EXT-01, AUTH-EXT-03 và test đăng nhập mobile đã được cập nhật; bằng chứng PASS bên dưới phản ánh lần chạy lịch sử ngày 17/10 với link reset và chưa được chạy lại toàn bộ trên luồng OTP.
+
 ## 1. Tóm tắt kết quả theo nhóm kịch bản
 
 | Nhóm kịch bản | Tổng số flow | PASS | OPEN / PARTIAL | OUT_OF_SCOPE | Tỷ lệ PASS (trong scope) |

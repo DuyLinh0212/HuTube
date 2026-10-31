@@ -48,7 +48,6 @@ class AuthLink {
       '/login',
       '/account',
       '/verify-email',
-      '/reset-password',
     }.contains(uri.path)) {
       return null;
     }

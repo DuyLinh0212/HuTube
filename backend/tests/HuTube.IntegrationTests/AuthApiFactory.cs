@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 using HuTube.Application.Auth;
 using HuTube.Application.Storage;
 using HuTube.Application.Videos;
@@ -18,6 +19,9 @@ public sealed class TestEmails : IAuthEmailSender
     public ConcurrentDictionary<string, string> Bodies { get; } = new();
     public Task SendAsync(string email, string subject, string body, CancellationToken cancellationToken) { Bodies[email] = body; return Task.CompletedTask; }
     public string Token(string email) => Uri.UnescapeDataString(Bodies[email].Split("?token=")[1]);
+    public string Code(string email) => Regex.Match(Bodies[email], @"(?m)^Mã OTP: (?<code>\d{8})\r?$") is { Success: true } match
+        ? match.Groups["code"].Value
+        : throw new InvalidOperationException("The email did not contain a password reset OTP.");
 }
 public sealed class TestGoogleTokenVerifier : IGoogleTokenVerifier
 {

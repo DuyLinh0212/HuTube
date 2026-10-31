@@ -199,7 +199,7 @@ describe('Authentication boundary', () => {
     await login();
     auth.logoutOthers().subscribe(); const others = controller.expectOne(base + '/auth/logout-others'); expect(others.request.method).toBe('POST'); others.flush({message:'ok'});
     auth.revoke('session-2').subscribe(); const revoke = controller.expectOne(base + '/auth/sessions/session-2'); expect(revoke.request.method).toBe('DELETE'); revoke.flush({message:'ok'});
-    auth.reset('reset-token','NewPassword123').subscribe(); const reset = controller.expectOne(base + '/auth/reset-password'); expect(reset.request.body).toEqual({token:'reset-token',password:'NewPassword123'}); reset.flush({message:'ok'}); expect(auth.accessToken()).toBeNull();
+    auth.reset('linh@example.test','01234567','NewPassword123').subscribe(); const reset = controller.expectOne(base + '/auth/reset-password'); expect(reset.request.body).toEqual({email:'linh@example.test',code:'01234567',password:'NewPassword123'}); reset.flush({message:'ok'}); expect(auth.accessToken()).toBeNull();
   });
 });
 

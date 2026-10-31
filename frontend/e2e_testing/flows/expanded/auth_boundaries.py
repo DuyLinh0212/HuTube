@@ -1,7 +1,7 @@
 import time
 from playwright.sync_api import expect
 from flows.expanded.common import case,snapshot_module
-from tests.full_functional import pickup_link
+from tests.full_functional import pickup_link, pickup_code
 from support.local_db import LocalDb
 
 def run(suite,config,actors):
@@ -24,14 +24,14 @@ def run(suite,config,actors):
     def reset_expired(entry):
         member=actors['member'];email=member['identity']['email'];sent=time.time()
         suite.api(guest,'post','/auth/forgot-password',data={'email':email})
-        link=pickup_link(config,email,'reset-password',sent);uid=member['identity']['userId']
+        code=pickup_code(config,email,sent);uid=member['identity']['userId']
         db.sql("UPDATE users SET password_reset_expires_at=now()-interval '1 minute' WHERE user_id=:'id'::uuid AND password_reset_used_at IS NULL AND email LIKE 'qc.%@example.test';",{'id':uid})
-        p.goto(link);p.locator('#password').fill('QCExpiredMustNotApply2026!');p.locator('#confirmPassword').fill('QCExpiredMustNotApply2026!')
+        suite.go(guest,'/reset-password?email='+email,'app-auth-page');p.locator('#resetCode').fill(code);p.locator('#password').fill('QCExpiredMustNotApply2026!');p.locator('#confirmPassword').fill('QCExpiredMustNotApply2026!')
         suite.response(guest,'/auth/reset-password',lambda:p.locator('button[type=submit]').click(),method='POST',status=400)
         expect(p.locator('[role=alert]')).to_be_visible()
         fresh=suite.actor('expired-reset-current-password','user','member');assert fresh['identity']['userId']==uid;suite.release_actor(fresh)
-        entry['resource_ids']=[uid];entry['steps']=['Actual forgot-password creates recipient reset token','Prepare expiry in owned fixture DB','Actual UI reset rejects expired token','Current password still logs into same identity']
+        entry['resource_ids']=[uid];entry['steps']=['Actual forgot-password creates recipient OTP','Prepare expiry in owned fixture DB','Actual UI reset rejects expired OTP','Current password still logs into same identity']
         entry['fixture_preparation']='Expiry timestamp adjusted in isolated owned DB; password was not seeded/changed'
         entry['mail_manual']='NOT_EXECUTED; automated recipient-specific Pickup'
-    case(suite,guest,'AUTH-RESET-EXPIRED','AUTH-EXT-01','Expired reset link cannot replace password',reset_expired,'authentication')
+    case(suite,guest,'AUTH-RESET-EXPIRED','AUTH-EXT-01','Expired reset OTP cannot replace password',reset_expired,'authentication')
     suite.release_actor(guest)

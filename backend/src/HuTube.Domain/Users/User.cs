@@ -34,6 +34,7 @@ public sealed class User
     public DateTimeOffset? PasswordResetCreatedAt { get; set; }
     public DateTimeOffset? PasswordResetExpiresAt { get; set; }
     public DateTimeOffset? PasswordResetUsedAt { get; set; }
+    public int PasswordResetFailedAttempts { get; set; }
     public bool IsBlocked => DeletedAt != null || Status is "suspended" or "banned" or "deleted";
 }
 

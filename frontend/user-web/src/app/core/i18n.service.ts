@@ -257,6 +257,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'nav.terms': 'Điều khoản',
     'nav.privacy': 'Quyền riêng tư',
     'nav.guidelines': 'Quy tắc cộng đồng',
+    'nav.contactSupport': 'Liên hệ',
     'nav.policyHub': 'Chính sách',
     'nav.navigation': 'Điều hướng chính',
     'nav.guestPrompt': 'Đăng nhập để bắt đầu xem, lưu và tương tác với video.',
@@ -1819,8 +1820,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'auth.adminSubtitle': 'Dành cho đội ngũ quản trị.'
     ,'auth.registerSubtitle': 'Bắt đầu với email của bạn.'
     ,'auth.verifySubtitle': 'Hoàn tất xác minh để bảo vệ tài khoản.'
-    ,'auth.forgotSubtitle': 'Nhập email để nhận liên kết đặt lại mật khẩu.'
-    ,'auth.resetSubtitle': 'Chọn mật khẩu mới cho tài khoản của bạn.'
+    ,'auth.forgotSubtitle': 'Nhập email để nhận mã OTP đặt lại mật khẩu.'
+    ,'auth.resetSubtitle': 'Nhập mã OTP trong email và chọn mật khẩu mới.'
     ,'auth.verificationHelp': 'Chưa nhận được email xác minh?'
     ,'auth.resendEmail': 'Gửi lại email'
     ,'auth.usernameHint': '3–50 ký tự: chữ, số, dấu chấm, gạch dưới hoặc gạch ngang.'
@@ -1836,13 +1837,18 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'auth.mobileAppLink': 'Mở trong ứng dụng Dalitu'
     ,'auth.appLoginLink': 'Đăng nhập trên ứng dụng Dalitu'
     ,'auth.sessionExpired': 'Phiên đăng nhập đã hết hạn. Đăng nhập lại để tiếp tục.'
-    ,'auth.resetMissingToken': 'Liên kết thiếu mã xác nhận. Vui lòng yêu cầu đặt lại mật khẩu.'
+    ,'auth.resetCode': 'Mã OTP'
+    ,'auth.resetCodeHint': 'Mã gồm 8 chữ số, có hiệu lực trong 10 phút.'
+    ,'auth.resetCodeInvalid': 'Nhập mã OTP gồm đúng 8 chữ số.'
+    ,'auth.sendResetCode': 'Gửi mã OTP'
+    ,'auth.enterResetCode': 'Nhập mã OTP'
+    ,'auth.requestNewCode': 'Yêu cầu mã mới'
     ,'auth.googleCredentialMissing': 'Không nhận được thông tin xác thực từ Google.'
     ,'auth.googleLoadError': 'Không tải được đăng nhập Google. Vui lòng thử lại.'
     ,'auth.formInvalid': 'Vui lòng kiểm tra các trường được đánh dấu.'
     ,'auth.passwordMismatch': 'Mật khẩu xác nhận chưa khớp.'
     ,'auth.registerSuccess': 'Tài khoản đã được tạo. Kiểm tra hộp thư để xác minh email trước khi đăng nhập.'
-    ,'auth.forgotSuccess': 'Nếu email có trong hệ thống, hướng dẫn đặt lại mật khẩu sẽ được gửi đến bạn. Hãy kiểm tra cả thư rác.'
+    ,'auth.forgotSuccess': 'Nếu email có trong hệ thống, mã OTP đặt lại mật khẩu sẽ được gửi đến bạn. Hãy kiểm tra hộp thư và nhập mã ở bước tiếp theo.'
     ,'auth.resetSuccess': 'Đã đổi mật khẩu và kết thúc các phiên cũ. Bạn có thể đăng nhập bằng mật khẩu mới.'
     ,'auth.verifySuccess': 'Email đã được xác minh. Bạn có thể đăng nhập ngay.'
     ,'auth.resendSuccess': 'Nếu tài khoản cần xác minh, một liên kết mới sẽ được gửi đến email của bạn.'
@@ -2404,6 +2410,7 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'nav.terms': 'Terms',
     'nav.privacy': 'Privacy',
     'nav.guidelines': 'Community Guidelines',
+    'nav.contactSupport': 'Contact',
     'nav.policyHub': 'Policies',
     'nav.navigation': 'Primary navigation',
     'nav.guestPrompt': 'Sign in to start watching, saving, and interacting with videos.',
@@ -3966,8 +3973,8 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'auth.adminSubtitle': 'For the administration team.'
     ,'auth.registerSubtitle': 'Get started with your email.'
     ,'auth.verifySubtitle': 'Finish verification to protect your account.'
-    ,'auth.forgotSubtitle': 'Enter your email to receive a password reset link.'
-    ,'auth.resetSubtitle': 'Choose a new password for your account.'
+    ,'auth.forgotSubtitle': 'Enter your email to receive a password reset OTP.'
+    ,'auth.resetSubtitle': 'Enter the OTP from your email and choose a new password.'
     ,'auth.verificationHelp': "Didn't receive the verification email?"
     ,'auth.resendEmail': 'Send email again'
     ,'auth.usernameHint': '3–50 characters: letters, numbers, periods, underscores or hyphens.'
@@ -3983,13 +3990,18 @@ export const DICTIONARY: Record<AppLang, Record<string, string>> = {
     ,'auth.mobileAppLink': 'Open in the Dalitu app'
     ,'auth.appLoginLink': 'Sign in in the Dalitu app'
     ,'auth.sessionExpired': 'Your session expired. Sign in again to continue.'
-    ,'auth.resetMissingToken': 'This link is missing a verification token. Request a new password reset link.'
+    ,'auth.resetCode': 'OTP code'
+    ,'auth.resetCodeHint': 'The 8-digit code expires in 10 minutes.'
+    ,'auth.resetCodeInvalid': 'Enter the 8-digit OTP code.'
+    ,'auth.sendResetCode': 'Send OTP code'
+    ,'auth.enterResetCode': 'Enter OTP code'
+    ,'auth.requestNewCode': 'Request a new code'
     ,'auth.googleCredentialMissing': 'Google did not return authentication details.'
     ,'auth.googleLoadError': 'Unable to load Google Sign-In. Please try again.'
     ,'auth.formInvalid': 'Check the fields marked in the form.'
     ,'auth.passwordMismatch': 'Passwords do not match.'
     ,'auth.registerSuccess': 'Your account was created. Check your inbox to verify your email before signing in.'
-    ,'auth.forgotSuccess': 'If the email exists in our system, password reset instructions will be sent to you. Check your spam folder too.'
+    ,'auth.forgotSuccess': 'If the email is registered, a password reset OTP will be sent. Check your inbox and enter the code in the next step.'
     ,'auth.resetSuccess': 'Your password was changed and old sessions were ended. You can now sign in with the new password.'
     ,'auth.verifySuccess': 'Your email has been verified. You can sign in now.'
     ,'auth.resendSuccess': 'If your account needs verification, a new link will be sent to your email.'

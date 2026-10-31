@@ -1,6 +1,6 @@
 # HuTube User Web
 
-Ứng dụng Angular độc lập cho S4-01/S4-02. Các route: `/register`, `/verify-email?token=…`, `/login`, `/forgot-password`, `/reset-password?token=…`, `/account`.
+Ứng dụng Angular độc lập cho S4-01/S4-02. Các route: `/register`, `/verify-email?token=…`, `/login`, `/forgot-password`, `/reset-password?email=…` (nhập OTP trong giao diện), `/account`.
 
 Bản User Web mặc định gọi API EC2 `https://api.dalitu.app/api/v1` và Recommendation Service `https://recommendation.dalitu.app/api/v1`. Khi phát triển local, `npm start` tự dùng `http://localhost:5080/api/v1` và `http://localhost:8000/api/v1`; có thể đặt biến môi trường để ghi đè trước `npm start` hoặc `npm run build`.
 

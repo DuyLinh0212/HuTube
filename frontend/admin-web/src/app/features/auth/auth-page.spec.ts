@@ -66,13 +66,16 @@ describe('Vietnamese auth forms', () => {
     const harness=await RouterTestingHarness.create('/forgot-password'); await fill(harness,{email:'unknown@example.test'}); await submit(harness);
     controller.expectOne(base+'/auth/forgot-password').flush({message:'sent'}); harness.detectChanges(); expect(harness.routeNativeElement!.textContent).toContain('Nếu email có trong hệ thống');
   });
-  it('requires a reset token and shows recovery navigation', async()=>{
-    const harness=await RouterTestingHarness.create('/reset-password'); expect(harness.routeNativeElement!.textContent).toContain('Liên kết thiếu mã xác nhận'); expect(harness.routeNativeElement!.querySelector('a[href="/forgot-password"]')).not.toBeNull();
+  it('requires email and an eight-digit OTP before submitting a reset', async()=>{
+    const harness=await RouterTestingHarness.create('/reset-password');
+    expect(harness.routeNativeElement!.querySelector('#resetCode')).not.toBeNull();
+    await fill(harness,{email:'linh@example.test',resetCode:'1234',password:'NewPassword123',confirmPassword:'NewPassword123'}); await submit(harness);
+    controller.expectNone(base+'/auth/reset-password'); expect(harness.routeNativeElement!.textContent).toContain('8 chữ số');
   });
-  it('sets a new password using the link token and clears password fields after success', async()=>{
-    const harness=await RouterTestingHarness.create('/reset-password?token=reset-secret');
-    await fill(harness,{password:'NewPassword123',confirmPassword:'NewPassword123'}); await submit(harness);
-    const request=controller.expectOne(base+'/auth/reset-password'); expect(request.request.body).toEqual({token:'reset-secret',password:'NewPassword123'});
+  it('sets a new password using the emailed OTP and clears password fields after success', async()=>{
+    const harness=await RouterTestingHarness.create('/reset-password?email=linh%40example.test');
+    await fill(harness,{resetCode:'01234567',password:'NewPassword123',confirmPassword:'NewPassword123'}); await submit(harness);
+    const request=controller.expectOne(base+'/auth/reset-password'); expect(request.request.body).toEqual({email:'linh@example.test',code:'01234567',password:'NewPassword123'});
     request.flush({message:'reset'}); harness.detectChanges(); expect(harness.routeNativeElement!.textContent).toContain('Đã đổi mật khẩu'); expect(harness.routeNativeElement!.querySelector('input[type="password"]')).toBeNull();
   });
   it('shows invalid credentials without dropping the email or leaving the form busy', async()=>{

@@ -157,6 +157,7 @@ public sealed class AuthStore(HuTubeDbContext db) : IAuthStore
     {
         user.PasswordResetTokenHash = token.TokenHash; user.PasswordResetCreatedAt = token.CreatedAt;
         user.PasswordResetExpiresAt = token.ExpiresAt; user.PasswordResetUsedAt = null;
+        user.PasswordResetFailedAttempts = 0;
     }
 
     public async Task InvalidateTokensAsync(Guid userId, bool reset, DateTimeOffset now, CancellationToken ct)

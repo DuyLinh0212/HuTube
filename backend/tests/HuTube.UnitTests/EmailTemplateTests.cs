@@ -30,13 +30,11 @@ public sealed class EmailTemplateTests
                 new TestHttpClientFactory(),
                 webBaseUrl is null ? null : new AuthOptions { WebBaseUrl = webBaseUrl });
             var template = new EmailTemplateMessage(
-                "Đặt lại mật khẩu Dalitu",
+                "Mã OTP đặt lại mật khẩu Dalitu",
                 "BẢO MẬT TÀI KHOẢN",
-                "Đặt lại mật khẩu Dalitu",
-                ["Chúng tôi nhận được yêu cầu đặt lại mật khẩu."],
-                "Đặt lại mật khẩu",
-                "https://hutube.example/reset-password?token=abc123",
-                "Liên kết có hiệu lực trong 30 phút.");
+                "Xác nhận yêu cầu đổi mật khẩu",
+                ["Chúng tôi nhận được yêu cầu đặt lại mật khẩu.", "Mã OTP: 01234567"],
+                Note: "Mã có hiệu lực trong 10 phút.");
 
             await sender.SendTemplateAsync("user@example.com", template, CancellationToken.None);
 
@@ -47,9 +45,11 @@ public sealed class EmailTemplateTests
             var html = Assert.IsType<TextPart>(related[0]);
             var logo = Assert.IsType<MimePart>(related[1]);
 
-            Assert.Contains("https://hutube.example/reset-password?token=abc123", plainText.Text);
-            Assert.Contains("Đặt lại mật khẩu Dalitu", html.Text);
-            Assert.Contains("href=\"https://hutube.example/reset-password?token=abc123\"", html.Text);
+            Assert.Contains("Mã OTP: 01234567", plainText.Text);
+            Assert.Contains("OTP", html.Text);
+            Assert.Contains("01234567", html.Text);
+            Assert.DoesNotContain("reset-password?token=", plainText.Text);
+            Assert.DoesNotContain("reset-password?token=", html.Text);
             Assert.Contains("src=\"cid:dalitu-email-logo\"", html.Text);
             Assert.Equal("dalitu-email-logo", logo.ContentId);
             Assert.Equal("image", logo.ContentType.MediaType);

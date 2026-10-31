@@ -56,7 +56,7 @@ Mỗi lệnh chạy ở một terminal riêng, có thể dừng bằng Ctrl+C:
 
 Web dùng `API_BASE_URL`; npm prestart/prebuild cập nhật `public/config.json`, bootstrap tải file này trước khi khởi tạo Angular. Mobile nhận `MOBILE_API_BASE_URL` qua `--dart-define=API_BASE_URL=...`; chọn thiết bị với `-Device <device-id>`. Máy thật cần địa chỉ LAN của máy chạy API thay cho `10.0.2.2`; cho phép truy cập cổng 5080 trong mạng phát triển. Không dùng `localhost` trên điện thoại để gọi máy tính.
 
-Email Development dùng pickup `.eml`: mở thư trong thư mục pickup mà backend cấu hình, lấy link xác minh/đặt lại mật khẩu và mở trong trình duyệt. Không có API công khai trả verification/reset token. Link email chứa token nhạy cảm; không chia sẻ hoặc commit thư. SMTP phải được cấu hình trước khi dùng tài khoản thật trên staging.
+Email Development dùng pickup `.eml`: mở thư trong thư mục pickup mà backend cấu hình, lấy link xác minh email; đặt lại mật khẩu dùng mã OTP 8 chữ số trong email và nhập trên trang/app. OTP hết hạn sau 10 phút và bị khóa sau 5 lần nhập sai. Không có API công khai trả OTP. Email pickup chứa thông tin xác minh nhạy cảm; không chia sẻ hoặc commit thư. SMTP phải được cấu hình trước khi dùng tài khoản thật trên staging.
 
 Admin login kiểm tra admin access tại API; đăng ký thông thường không tạo quyền quản trị. Seed/admin provisioning phải theo hướng dẫn database; không có tài khoản admin và mật khẩu mặc định công khai.
 

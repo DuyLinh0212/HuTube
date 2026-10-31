@@ -190,6 +190,10 @@ namespace HuTube.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("failed_login_attempts");
 
+                    b.Property<int>("PasswordResetFailedAttempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("password_reset_failed_attempts");
+
                     b.Property<DateTimeOffset?>("LastLoginAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_login_at");
