@@ -53,7 +53,7 @@ export class AdminRbacPage {
   readonly createPermissionCodes = signal<string[]>([]);
   private readonly moduleOrder = [
     'dashboard', 'user', 'role', 'channel', 'video', 'comment', 'moderation', 'report', 'appeal',
-    'plan', 'subscription', 'payment', 'revenue', 'policy', 'taxonomy', 'notification', 'analytics', 'audit', 'system',
+    'plan', 'subscription', 'payment', 'revenue', 'policy', 'taxonomy', 'notification', 'analytics', 'backup', 'audit', 'system',
   ];
 
   readonly canEdit = computed(() => this.auth.hasPermission('role.edit'));

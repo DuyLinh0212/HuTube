@@ -23,6 +23,12 @@ sudo docker compose -f docker-compose.ec2.yml up -d --no-deps --force-recreate a
 
 The monitor shows host RAM from Linux `/proc/meminfo` and caches Upstash usage for five minutes. Neon monthly compute consumption depends on the account plan; a provider HTTP 403 leaves database size and connections available while monthly consumption remains unavailable. See [system monitoring integrations](SYSTEM_MONITORING.md) for the variable list and metric scope.
 
+## PostgreSQL backups to Cloudflare R2
+
+In Dalitu Admin, open **System → Backup & Recovery** (`/system/database-backups`) to set a daily or weekly schedule in Vietnam time (UTC+7), start a backup, filter execution history by date, and download completed dumps. `backup.view` grants history and download access; `backup.manage` grants schedule and run access.
+
+The API worker runs on EC2, exports PostgreSQL in compressed custom format, and uploads it under `database-backups/YYYY/MM/` in the configured `Storage__R2__BucketName`. It uses the existing `Storage__R2__AccountId`, `Storage__R2__AccessKeyId`, and `Storage__R2__SecretAccessKey` values in `.env.ec2-api`; the API image includes PostgreSQL 18 client tools for `pg_dump`. Download links are signed and expire after five minutes. The dump contains PostgreSQL data and metadata; video and image files remain in their current storage services.
+
 ## Start
 
 For automatic updates from verified `main` commits, install the [EC2 auto-deployment controller](EC2_AUTO_DEPLOY.md). It waits for all required CI jobs and both Vercel deployments, checks the new services, and restores previous images if activation fails.

@@ -177,6 +177,8 @@ builder.Services.AddScoped<StrikeService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<AdminContentService>();
 builder.Services.AddScoped<AdminOperationsService>();
+builder.Services.AddScoped<AdminDatabaseBackupService>();
+builder.Services.AddHostedService<DatabaseBackupWorker>();
 builder.Services.AddSingleton(new ApiRequestTelemetry());
 builder.Services.AddScoped<AppealService>();
 builder.Services.AddScoped<TaxonomyService>();

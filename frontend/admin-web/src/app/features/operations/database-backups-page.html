@@ -1,0 +1,172 @@
+<main class="backup-page">
+  <header class="page-heading">
+    <div>
+      <span class="eyebrow">{{ 'backups.eyebrow' | translate }}</span>
+      <h1>{{ 'backups.title' | translate }}</h1>
+      <p>{{ 'backups.subtitle' | translate }}</p>
+    </div>
+    <div class="heading-actions">
+      <button class="quiet-button" type="button" (click)="load()" [disabled]="loading()">
+        <span aria-hidden="true">↻</span>{{ 'backups.refresh' | translate }}
+      </button>
+      @if (canManage()) {
+        <button class="primary-button" type="button" (click)="runNow()" [disabled]="startingRun() || !!activeRun() || loading() || !overview()?.storageConfigured">
+          <span class="run-symbol" aria-hidden="true">↗</span>
+          {{ (startingRun() || activeRun() ? 'backups.runQueued' : 'backups.runNow') | translate }}
+        </button>
+      }
+    </div>
+  </header>
+
+  @if (overview(); as data) {
+    @if (!data.storageConfigured) {
+      <section class="notice-panel warning-panel" role="status">
+        <span class="notice-icon" aria-hidden="true">!</span>
+        <div><strong>{{ 'backups.storageMissingTitle' | translate }}</strong><p>{{ 'backups.storageMissing' | translate }}</p></div>
+      </section>
+    }
+  }
+
+  @if (loadError()) {
+    <section class="notice-panel error-panel" role="alert">
+      <span class="notice-icon" aria-hidden="true">!</span>
+      <div><strong>{{ 'backups.loadErrorTitle' | translate }}</strong><p>{{ 'backups.loadError' | translate }}</p></div>
+      <button class="text-button" type="button" (click)="load()">{{ 'backups.retry' | translate }}</button>
+    </section>
+  }
+
+  @if (runError()) {
+    <section class="notice-panel error-panel" role="alert"><span class="notice-icon" aria-hidden="true">!</span><div><strong>{{ 'backups.runErrorTitle' | translate }}</strong><p>{{ 'backups.runError' | translate }}</p></div></section>
+  }
+
+  @if (loading() && !overview()) {
+    <section class="loading-panel" role="status">{{ 'backups.loading' | translate }}</section>
+  }
+
+  @if (overview(); as data) {
+    <section class="backup-top-grid">
+      <article class="schedule-card">
+        <div class="card-heading">
+          <div><span class="section-kicker">{{ 'backups.scheduleKicker' | translate }}</span><h2>{{ 'backups.scheduleTitle' | translate }}</h2></div>
+          <span class="schedule-state" [class.is-enabled]="data.schedule.enabled">
+            <span class="state-dot"></span>{{ (data.schedule.enabled ? 'backups.enabled' : 'backups.disabled') | translate }}
+          </span>
+        </div>
+
+        <div class="pipeline-strip" aria-label="PostgreSQL to Cloudflare R2">
+          <span class="pipeline-node database-node"><span aria-hidden="true">▤</span><b>PostgreSQL</b></span>
+          <span class="pipeline-line"><i></i></span>
+          <span class="pipeline-node r2-node"><span class="r2-mark" aria-hidden="true">R2</span><b>Cloudflare R2</b></span>
+        </div>
+
+        <form class="schedule-form" (ngSubmit)="saveSchedule()">
+          <label class="schedule-toggle" for="backup-enabled">
+            <span><strong>{{ 'backups.enableSchedule' | translate }}</strong><small>{{ 'backups.enableHint' | translate }}</small></span>
+            <input id="backup-enabled" name="enabled" type="checkbox" [ngModel]="enabled()" (ngModelChange)="enabled.set($event)" [disabled]="!canManage() || saving()" />
+          </label>
+
+          <div class="schedule-fields">
+            <label><span>{{ 'backups.frequency' | translate }}</span>
+              <select name="frequency" [ngModel]="frequency()" (ngModelChange)="setFrequency($event)" [disabled]="!canManage() || saving()">
+                <option value="daily">{{ 'backups.daily' | translate }}</option>
+                <option value="weekly">{{ 'backups.weekly' | translate }}</option>
+              </select>
+            </label>
+            @if (frequency() === 'weekly') {
+              <label><span>{{ 'backups.dayOfWeek' | translate }}</span>
+                <select name="dayOfWeek" [ngModel]="dayOfWeek()" (ngModelChange)="setDayOfWeek($event)" [disabled]="!canManage() || saving()">
+                  @for (day of dayOptions; track day.value) { <option [ngValue]="day.value">{{ day.key | translate }}</option> }
+                </select>
+              </label>
+            }
+            <label><span>{{ 'backups.runTime' | translate }}</span>
+              <input name="time" type="time" [ngModel]="time()" (ngModelChange)="time.set($event)" [disabled]="!canManage() || saving()" />
+            </label>
+          </div>
+          <p class="timezone-note"><span aria-hidden="true">◷</span>{{ 'backups.timezone' | translate }}</p>
+
+          @if (data.schedule.enabled && data.schedule.nextRunAt) {
+            <div class="next-run"><span>{{ 'backups.nextRun' | translate }}</span><strong>{{ formatDate(data.schedule.nextRunAt) }} · {{ formatTime(data.schedule.nextRunAt) }}</strong></div>
+          }
+          @if (data.schedule.lastRunAt) {
+            <div class="last-run"><span>{{ 'backups.lastRun' | translate }}</span><strong>{{ formatDate(data.schedule.lastRunAt) }} · {{ formatTime(data.schedule.lastRunAt) }}</strong></div>
+          }
+
+          @if (canManage()) {
+            <div class="schedule-footer">
+              <span class="save-feedback" aria-live="polite">
+                @if (saved()) { {{ 'backups.saved' | translate }} }
+                @if (saveError()) { {{ 'backups.saveError' | translate }} }
+              </span>
+              <button class="save-button" type="submit" [disabled]="saving() || !time()">
+                {{ (saving() ? 'backups.saving' : 'backups.saveSchedule') | translate }}
+              </button>
+            </div>
+          } @else {
+            <p class="permission-note">{{ 'backups.readOnlyHint' | translate }}</p>
+          }
+        </form>
+      </article>
+
+      <aside class="run-status-card" [class.is-running]="!!data.activeRun">
+        <span class="section-kicker">{{ 'backups.executionKicker' | translate }}</span>
+        @if (data.activeRun; as active) {
+          <div class="run-status-icon active" aria-hidden="true"><span></span></div>
+          <h2>{{ (active.status === 'queued' ? 'backups.queuedTitle' : 'backups.runningTitle') | translate }}</h2>
+          <p>{{ (active.status === 'queued' ? 'backups.queuedHint' : 'backups.runningHint') | translate }}</p>
+          <div class="active-run-meta"><span>{{ triggerKey(active) | translate }}</span><time>{{ formatDate(active.createdAt) }} · {{ formatTime(active.createdAt) }}</time></div>
+        } @else {
+          <div class="run-status-icon idle" aria-hidden="true"><span>✓</span></div>
+          <h2>{{ 'backups.idleTitle' | translate }}</h2>
+          <p>{{ 'backups.idleHint' | translate }}</p>
+          <div class="active-run-meta"><span>{{ 'backups.destination' | translate }}</span><time>Cloudflare R2</time></div>
+        }
+        <p class="scope-note">{{ 'backups.scopeNote' | translate }}</p>
+      </aside>
+    </section>
+
+    @if (downloadError()) {
+      <section class="notice-panel error-panel compact-error" role="alert"><span class="notice-icon" aria-hidden="true">!</span><div><strong>{{ 'backups.downloadError' | translate }}</strong></div></section>
+    }
+
+    <section class="history-panel">
+      <div class="history-heading">
+        <div><span class="section-kicker">{{ 'backups.historyKicker' | translate }}</span><h2>{{ 'backups.historyTitle' | translate }}</h2><p>{{ 'backups.historyHint' | translate }}</p></div>
+        <span class="record-count">{{ data.runs.length | number }} {{ 'backups.records' | translate }}</span>
+      </div>
+      <div class="history-filters">
+        <label><span>{{ 'backups.fromDate' | translate }}</span><input type="date" name="fromDate" [ngModel]="fromDate()" (ngModelChange)="fromDate.set($event)" /></label>
+        <label><span>{{ 'backups.toDate' | translate }}</span><input type="date" name="toDate" [ngModel]="toDate()" (ngModelChange)="toDate.set($event)" /></label>
+        <button type="button" class="filter-button" (click)="applyFilters()" [disabled]="loading() || !fromDate() || !toDate() || invalidDateRange()">{{ 'backups.applyFilter' | translate }}</button>
+        @if (invalidDateRange()) { <span class="filter-error">{{ 'backups.invalidDateRange' | translate }}</span> }
+      </div>
+
+      @if (loading()) { <div class="history-loading" role="status">{{ 'backups.loadingHistory' | translate }}</div> }
+      <div class="history-table-wrap">
+        <table class="history-table">
+          <thead><tr><th>{{ 'backups.colDate' | translate }}</th><th>{{ 'backups.colTrigger' | translate }}</th><th>{{ 'backups.colStatus' | translate }}</th><th>{{ 'backups.colSize' | translate }}</th><th><span class="visually-hidden">{{ 'backups.colActions' | translate }}</span></th></tr></thead>
+          <tbody>
+            @for (run of data.runs; track trackRun($index, run)) {
+              <tr>
+                <td [attr.data-label]="'backups.colDate' | translate"><strong>{{ formatDate(run.createdAt) }}</strong><small>{{ formatTime(run.createdAt) }}</small></td>
+                <td [attr.data-label]="'backups.colTrigger' | translate"><span class="trigger-chip" [class.scheduled]="run.trigger === 'schedule'">{{ triggerKey(run) | translate }}</span></td>
+                <td [attr.data-label]="'backups.colStatus' | translate"><span class="status-chip" [class]="'status-chip status-' + run.status"><i></i>{{ statusKey(run) | translate }}</span>@if (run.status === 'failed' && run.errorMessage) { <small class="run-error">{{ 'backups.failedHint' | translate }}</small> }</td>
+                <td [attr.data-label]="'backups.colSize' | translate">{{ formatBytes(run.sizeBytes) }}</td>
+                <td class="action-cell">
+                  @if (run.canDownload) {
+                    <button class="download-button" type="button" (click)="download(run)" [disabled]="!!downloadingRunId()" [attr.aria-label]="'backups.download' | translate">
+                      <span aria-hidden="true">↓</span>{{ (downloadingRunId() === run.runId ? 'backups.preparingDownload' : 'backups.download') | translate }}
+                    </button>
+                  } @else { <span class="no-action">—</span> }
+                </td>
+              </tr>
+            } @empty {
+              @if (!loading()) { <tr><td colspan="5"><div class="empty-history"><span aria-hidden="true">▤</span><strong>{{ 'backups.emptyTitle' | translate }}</strong><p>{{ 'backups.emptyHint' | translate }}</p></div></td></tr> }
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="history-limit">{{ 'backups.historyLimit' | translate }}</p>
+    </section>
+  }
+</main>

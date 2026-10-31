@@ -269,6 +269,7 @@ const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'nav.notificationsNav': 'Giám sát hệ thống',
     'nav.statistics': 'Thống kê & Báo cáo',
     'nav.systemLogs': 'Nhật ký & cấu hình',
+    'nav.databaseBackups': 'Sao lưu & Phục hồi',
 
     // Admin Users Page
     'users.title': 'Quản lý người dùng',
@@ -808,6 +809,7 @@ const DICTIONARY: Record<AppLang, Record<string, string>> = {
     'nav.notificationsNav': 'System Monitoring',
     'nav.statistics': 'Analytics & Reports',
     'nav.systemLogs': 'Logs & Configuration',
+    'nav.databaseBackups': 'Backup & Recovery',
 
     // Admin Users Page
     'users.title': 'User Management',

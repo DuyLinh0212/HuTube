@@ -113,6 +113,7 @@ internal sealed record ReadModelCachePolicy(int Seconds, string[] Scopes, bool S
             || path.Contains("/export") || path.EndsWith(".csv") || path.Contains("/evidence")
             || path.StartsWith("/api/v1/session") || path.StartsWith("/api/v1/payments/")
             || path == "/api/v1/admin/operations/system" || path.Contains("audit-logs")
+            || path.StartsWith("/api/v1/admin/database-backups")
             || path.Contains("recommendation-context") || path.Contains("/check-handle")
             || path.Contains("upload")
             || path.StartsWith("/api/v1/feedback-survey") || path.Contains("my-plan")) return null;

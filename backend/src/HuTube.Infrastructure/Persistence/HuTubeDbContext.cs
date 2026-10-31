@@ -1,4 +1,5 @@
 using HuTube.Domain.Channels;
+using HuTube.Domain.Backups;
 using HuTube.Domain.Payments;
 using HuTube.Domain.Playlists;
 using HuTube.Domain.Rbac;
@@ -57,6 +58,8 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
     public DbSet<ChannelStrike> ChannelStrikes => Set<ChannelStrike>();
     public DbSet<StrikePolicyConfiguration> StrikePolicyConfigurations => Set<StrikePolicyConfiguration>();
     public DbSet<Appeal> Appeals => Set<Appeal>();
+    public DbSet<DatabaseBackupSchedule> DatabaseBackupSchedules => Set<DatabaseBackupSchedule>();
+    public DbSet<DatabaseBackupRun> DatabaseBackupRuns => Set<DatabaseBackupRun>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
         optionsBuilder.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
@@ -304,6 +307,26 @@ public sealed class HuTubeDbContext(DbContextOptions<HuTubeDbContext> options) :
             b.Property(x => x.UpdatedAt).HasColumnName("updated_at");
         });
         model.Entity<Appeal>(b => { b.ToTable("appeals"); b.HasKey(x => x.AppealId); });
+        model.Entity<DatabaseBackupSchedule>(b => {
+            b.ToTable("database_backup_schedules", "public"); b.HasKey(x => x.Id);
+            b.Property(x => x.Id).ValueGeneratedNever();
+            b.Property(x => x.Frequency).HasMaxLength(16);
+            b.Property(x => x.TimeZoneId).HasMaxLength(64);
+            b.HasOne<User>().WithMany().HasForeignKey(x => x.UpdatedByUserId).OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("fk_database_backup_schedules_updated_by_user");
+        });
+        model.Entity<DatabaseBackupRun>(b => {
+            b.ToTable("database_backup_runs", "public"); b.HasKey(x => x.RunId);
+            b.Property(x => x.Trigger).HasMaxLength(16);
+            b.Property(x => x.Status).HasMaxLength(16);
+            b.Property(x => x.FileName).HasMaxLength(255);
+            b.Property(x => x.ErrorMessage).HasMaxLength(1000);
+            b.HasIndex(x => x.CreatedAt).HasDatabaseName("ix_database_backup_runs_created_at");
+            b.HasIndex(x => x.Status).IsUnique().HasFilter("status IN ('queued', 'running')")
+                .HasDatabaseName("ux_database_backup_runs_active_status");
+            b.HasOne<User>().WithMany().HasForeignKey(x => x.InitiatedByUserId).OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("fk_database_backup_runs_initiated_by_user");
+        });
         foreach (var entity in model.Model.GetEntityTypes())
             foreach (var property in entity.GetProperties())
                 property.SetColumnName(System.Text.RegularExpressions.Regex.Replace(property.Name, "([a-z0-9])([A-Z])", "$1_$2").ToLowerInvariant());
